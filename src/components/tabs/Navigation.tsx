@@ -1,18 +1,18 @@
-import { type ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Camera, Image as ImageIcon, Scissors, Library as LibraryIcon, Settings2 } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
-import { TabState } from '../../types';
+import type { TabState } from '../../types';
 import { motion } from 'motion/react';
 
-const NAV_TABS: { id: TabState; icon: ReactNode }[] = [
-  { id: 'live', icon: <Camera size={22} strokeWidth={1.5} /> },
-  { id: 'photo', icon: <ImageIcon size={22} strokeWidth={1.5} /> },
-  { id: 'extract', icon: <Scissors size={22} strokeWidth={1.5} /> },
-  { id: 'library', icon: <LibraryIcon size={22} strokeWidth={1.5} /> },
-  { id: 'settings', icon: <Settings2 size={22} strokeWidth={1.5} /> },
+const NAV_TABS: { id: TabState; icon: ReactNode; label: string }[] = [
+  { id: 'live', icon: <Camera size={22} strokeWidth={1.5} />, label: '实时试戴' },
+  { id: 'photo', icon: <ImageIcon size={22} strokeWidth={1.5} />, label: '照片换发' },
+  { id: 'extract', icon: <Scissors size={22} strokeWidth={1.5} />, label: '素材提取' },
+  { id: 'library', icon: <LibraryIcon size={22} strokeWidth={1.5} />, label: '素材库' },
+  { id: 'settings', icon: <Settings2 size={22} strokeWidth={1.5} />, label: '设置' },
 ];
 
-export default function Navigation() {
+function Navigation() {
   const { activeTab, setActiveTab } = useAppContext();
 
   return (
@@ -24,8 +24,9 @@ export default function Navigation() {
              return (
                <button
                  key={tab.id}
+                 aria-label={tab.label}
                  onClick={() => setActiveTab(tab.id)}
-                 className="relative px-4 py-3 flex flex-col items-center justify-center gap-1 transition-colors"
+                 className="relative px-4 py-3 flex flex-col items-center justify-center gap-1"
                >
                  {isActive && (
                    <motion.div 
@@ -45,3 +46,5 @@ export default function Navigation() {
     </nav>
   );
 }
+
+export default memo(Navigation);

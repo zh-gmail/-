@@ -1,12 +1,15 @@
 import type { ImageGenProviderImpl } from '../imageGenClient';
-import { EXTRACT_PROMPT_CN } from '../imageGenClient';
+import { EXTRACT_PROMPT_CN, VLM_ANALYSIS_PROMPT_CN, HAIRSTYLE_GEN_PROMPT_CN } from '../../constants/prompts';
+import type { BaiduImageResponse } from '../../types';
 
 const TOKEN_URL = 'https://aip.baidubce.com/oauth/2.0/token';
-const CHAT_URL = 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-4.0-turbo-8k';
+const BAIDU_CHAT_MODEL = 'ernie-4.0-turbo-8k';
+const CHAT_URL = `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/${BAIDU_CHAT_MODEL}`;
 
-async function getAccessToken(apiKey: string, apiSecret: string): Promise<string> {
+async function getAccessToken(apiKey: string, apiSecret: string, signal?: AbortSignal): Promise<string> {
   const res = await fetch(`${TOKEN_URL}?grant_type=client_credentials&client_id=${encodeURIComponent(apiKey)}&client_secret=${encodeURIComponent(apiSecret)}`, {
     method: 'POST',
+    signal,
   });
   if (!res.ok) throw new Error(`百度 OAuth 失败: ${res.status}`);
   const data = await res.json();
@@ -18,10 +21,12 @@ async function callErnieVision(
   accessToken: string,
   imageBase64: string,
   prompt: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const res = await fetch(`${CHAT_URL}?access_token=${encodeURIComponent(accessToken)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal,
     body: JSON.stringify({
       messages: [
         {
@@ -45,10 +50,12 @@ async function callErnieVision(
 async function callErnieTextToImage(
   accessToken: string,
   prompt: string,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const res = await fetch(`https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/sd_xl?access_token=${encodeURIComponent(accessToken)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal,
     body: JSON.stringify({
       prompt,
       size: '1024x1024',
@@ -62,24 +69,26 @@ async function callErnieTextToImage(
   }
   const data = await res.json();
   if (data.task_id) {
-    return pollBaiduTask(accessToken, data.task_id);
+    return pollBaiduTask(accessToken, data.task_id, 30, signal);
   }
-  if (data.data) return data.data.map((d: { b64_image?: string; url?: string }) => d.b64_image ? `data:image/png;base64,${d.b64_image}` : (d.url || ''));
+  if (data.data) return data.data.map((d: BaiduImageResponse) => d.b64_image ? `data:image/png;base64,${d.b64_image}` : (d.url || ''));
   throw new Error('百度文生图返回无效数据');
 }
 
-async function pollBaiduTask(accessToken: string, taskId: string, maxRetries = 30): Promise<string[]> {
+async function pollBaiduTask(accessToken: string, taskId: string, maxRetries = 30, signal?: AbortSignal): Promise<string[]> {
   for (let i = 0; i < maxRetries; i++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     await new Promise(r => setTimeout(r, 2000));
     const res = await fetch(`https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/sd_xl?access_token=${encodeURIComponent(accessToken)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal,
       body: JSON.stringify({ taskId }),
     });
-    if (!res.ok) continue;
+    if (!res.ok) { console.warn('百度任务轮询失败:', res.status); continue; }
     const data = await res.json();
     if (data.data && data.data.length > 0) {
-      return data.data.map((d: { b64_image?: string; url?: string }) =>
+      return data.data.map((d: BaiduImageResponse) =>
         d.b64_image ? `data:image/png;base64,${d.b64_image}` : (d.url || '')
       );
     }
@@ -96,24 +105,25 @@ export const baiduProvider: ImageGenProviderImpl = {
     try {
       await getAccessToken(apiKey, apiSecret);
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('百度 testConnection failed:', err);
       return false;
     }
   },
 
-  async generateHairstyles(imageBase64: string, apiKey: string, apiSecret?: string): Promise<string[]> {
+  async generateHairstyles(imageBase64: string, apiKey: string, apiSecret?: string, signal?: AbortSignal): Promise<string[]> {
     if (!apiSecret) throw new Error('百度 API 需要 Secret Key');
-    const token = await getAccessToken(apiKey, apiSecret);
-    const analysis = await callErnieVision(token, imageBase64, '精确描述这张照片中人物的脸型轮廓、五官分布位置、肤色、性别以及当前发型特征。这是后续发型生成的关键参照。');
-    const hairstylePrompt = `基于以下人物特征生成5种不同发型的效果图：${analysis}\n\n严格约束(必须遵守)：\n1. 必须保持人物的五官、脸型、肤色完全不变，只替换发型\n2. 生成发型：清爽短发、复古羊毛卷、硬汉寸头、气质法式波波头、优雅长发\n3. 新发型必须自然贴合原始脸型和头型轮廓\n4. 保持原始照片的面部表情、眼神方向、嘴唇形状\n5. 高质量人像摄影风格，光照和背景尽量与原始照片一致`;
-    return callErnieTextToImage(token, hairstylePrompt);
+    const token = await getAccessToken(apiKey, apiSecret, signal);
+    const analysis = await callErnieVision(token, imageBase64, VLM_ANALYSIS_PROMPT_CN, signal);
+    const hairstylePrompt = HAIRSTYLE_GEN_PROMPT_CN(analysis);
+    return callErnieTextToImage(token, hairstylePrompt, signal);
   },
 
-  async extractHairstyle(imageBase64: string, apiKey: string, apiSecret?: string): Promise<string> {
+  async extractHairstyle(imageBase64: string, apiKey: string, apiSecret?: string, signal?: AbortSignal): Promise<string> {
     if (!apiSecret) throw new Error('百度 API 需要 Secret Key');
-    const token = await getAccessToken(apiKey, apiSecret);
-    const description = await callErnieVision(token, imageBase64, EXTRACT_PROMPT_CN);
-    const images = await callErnieTextToImage(token, `透明背景的发型素材PNG：${description}。只包含发型，无人脸，无背景，轮廓清晰。`);
+    const token = await getAccessToken(apiKey, apiSecret, signal);
+    const description = await callErnieVision(token, imageBase64, EXTRACT_PROMPT_CN, signal);
+    const images = await callErnieTextToImage(token, `透明背景的发型素材PNG：${description}。只包含发型，无人脸，无背景，轮廓清晰。`, signal);
     if (images.length === 0) throw new Error('发型提取失败');
     return images[0];
   },

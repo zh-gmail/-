@@ -1,5 +1,8 @@
-import { useRef, useEffect, useCallback, useState, RefObject } from 'react';
-import { createAREngine, AREngineInstance, HairstyleAsset, FaceTrackingCallback } from '../services/arEngine';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import type { RefObject } from 'react';
+import { createAREngine } from '../services/arEngine';
+import type { AREngineInstance, FaceTrackingCallback } from '../services/arEngine';
+import type { HairstyleAsset } from '../types';
 
 interface UseAREngineOptions {
   previewRef: RefObject<HTMLElement | null>;
@@ -9,8 +12,9 @@ interface UseAREngineOptions {
 export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
   const engineRef = useRef<AREngineInstance | null>(null);
   const initCalledRef = useRef(false);
+  const onFaceTrackedRef = useRef(onFaceTracked);
+  onFaceTrackedRef.current = onFaceTracked;
   const [isActive, setIsActive] = useState(false);
-  const [currentAsset, setCurrentAsset] = useState<HairstyleAsset | null>(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [arError, setArError] = useState<string | null>(null);
 
@@ -20,7 +24,7 @@ export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
 
     engine.onFaceTracked((detected) => {
       setFaceDetected(detected);
-      onFaceTracked?.(detected);
+      onFaceTrackedRef.current?.(detected);
     });
 
     return () => {
@@ -51,7 +55,7 @@ export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
 
     try {
       const result = await Promise.race([
-        engine.init({ licenseKey: '', previewElement: preview }).then(() => 'ok' as const),
+        engine.init({ previewElement: preview }).then(() => 'ok' as const),
         new Promise<never>((_, reject) => {
           timeoutId = setTimeout(
             () => reject(new Error('引擎初始化超时，请检查摄像头权限和网络连接')),
@@ -67,7 +71,6 @@ export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
       const errMsg = err instanceof Error ? err.message : err ? String(err) : '';
       console.error('AR engine init failed:', err);
 
-      // Show actionable error message
       let userMsg: string;
       if (errMsg.includes('Device in use') || errMsg.includes('NotReadableError')) {
         userMsg = '摄像头被占用，请关闭其他使用摄像头的标签页或应用后重新加载页面';
@@ -86,7 +89,6 @@ export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
     const engine = engineRef.current;
     if (!engine || !engine.isReady()) return;
     await engine.switchHairstyle(asset);
-    setCurrentAsset(asset);
   }, []);
 
   const setHairColor = useCallback((hex: string) => {
@@ -102,7 +104,6 @@ export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
   return {
     isActive,
     faceDetected,
-    currentAsset,
     arError,
     initEngine,
     switchHairstyle,

@@ -1,6 +1,5 @@
 import { Scene as m, WebGLRenderer as g, SRGBColorSpace as y, PerspectiveCamera as w, Mesh as M, MeshStandardMaterial as b, Group as p, BufferGeometry as x, BufferAttribute as A } from "three";
 import { CSS3DRenderer as E } from "three/addons/renderers/CSS3DRenderer.js";
-import { C as R } from "./controller-d1-OMKPY.js";
 import { U as S } from "./ui-fBadYuor.js";
 const I = { BufferGeometry: x, BufferAttribute: A };
 class C {
@@ -15,10 +14,7 @@ class C {
     environmentDeviceId: c = null,
     disableFaceMirror: l = !1
   }) {
-    this.container = a, this.ui = new S({ uiLoading: t, uiScanning: o, uiError: n }), this.controller = new R({
-      filterMinCF: e,
-      filterBeta: h
-    }), this.disableFaceMirror = l, this.scene = new m(), this.cssScene = new m(), this.renderer = new g({ antialias: !0, alpha: !0 }), this.cssRenderer = new E({ antialias: !0 }), this.renderer.outputColorSpace = y, this.renderer.setPixelRatio(window.devicePixelRatio), this.camera = new w(), this.userDeviceId = s, this.environmentDeviceId = c, this.anchors = [], this.faceMeshes = [], this.latestEstimate = null, this.container.appendChild(this.renderer.domElement), this.renderer.domElement.style.zIndex = "1", this.container.appendChild(this.cssRenderer.domElement), this.cssRenderer.domElement.style.zIndex = "1", this.shouldFaceUser = !0, window.addEventListener("resize", this._resize.bind(this));
+    this.container = a, this.ui = new S({ uiLoading: t, uiScanning: o, uiError: n }), this._controllerConfig = { filterMinCF: e, filterBeta: h }, this.controller = null, this.disableFaceMirror = l, this.scene = new m(), this.cssScene = new m(), this.renderer = new g({ antialias: !0, alpha: !0 }), this.cssRenderer = new E({ antialias: !0 }), this.renderer.outputColorSpace = y, this.renderer.setPixelRatio(window.devicePixelRatio), this.camera = new w(), this.userDeviceId = s, this.environmentDeviceId = c, this.anchors = [], this.faceMeshes = [], this.latestEstimate = null, this.container.appendChild(this.renderer.domElement), this.renderer.domElement.style.zIndex = "1", this.container.appendChild(this.cssRenderer.domElement), this.cssRenderer.domElement.style.zIndex = "1", this.shouldFaceUser = !0, window.addEventListener("resize", this._resize.bind(this));
   }
   async start() {
     this.ui.showLoading(), await this._startVideo(), await this._startAR(), this.ui.hideLoading();
@@ -54,6 +50,12 @@ class C {
   getLatestEstimate() {
     return this.latestEstimate;
   }
+  async _ensureController() {
+    if (!this.controller) {
+      const { C: R } = await import("./controller-d1-OMKPY.js");
+      this.controller = new R(this._controllerConfig);
+    }
+  }
   _startVideo() {
     return new Promise((a, t) => {
       if (this.video = document.createElement("video"), this.video.setAttribute("autoplay", ""), this.video.setAttribute("muted", ""), this.video.setAttribute("playsinline", ""), this.video.style.position = "absolute", this.video.style.top = "0px", this.video.style.left = "0px", this.video.style.zIndex = "0", this.container.appendChild(this.video), !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -76,6 +78,7 @@ class C {
   _startAR() {
     return new Promise(async (a, t) => {
       const o = this.video;
+      await this._ensureController();
       this.container, this.controller.onUpdate = ({ hasFace: e, estimateResult: h }) => {
         for (let s = 0; s < this.anchors.length; s++)
           this.anchors[s].css ? this.anchors[s].group.children.forEach((c) => {
@@ -129,6 +132,8 @@ class C {
   _resize() {
     const { renderer: a, cssRenderer: t, camera: o, container: n, video: e } = this;
     if (!e)
+      return;
+    if (!this.controller)
       return;
     {
       this.video.setAttribute("width", this.video.videoWidth), this.video.setAttribute("height", this.video.videoHeight), this.controller.onInputResized(e);

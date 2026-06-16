@@ -1,18 +1,13 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { Suspense } from 'react';
+import { Suspense, lazy } from 'react';
 import { AppProvider, useAppContext } from './store/AppContext';
 import Navigation from './components/tabs/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 
-const LiveCamera = React.lazy(() => import('./components/tabs/LiveCamera'));
-const PhotoEdit = React.lazy(() => import('./components/tabs/PhotoEdit'));
-const Extraction = React.lazy(() => import('./components/tabs/Extraction'));
-const Library = React.lazy(() => import('./components/tabs/Library'));
-const Settings = React.lazy(() => import('./components/tabs/Settings'));
+const LiveCamera = lazy(() => import('./components/tabs/LiveCamera'));
+const PhotoEdit = lazy(() => import('./components/tabs/PhotoEdit'));
+const Extraction = lazy(() => import('./components/tabs/Extraction'));
+const Library = lazy(() => import('./components/tabs/Library'));
+const Settings = lazy(() => import('./components/tabs/Settings'));
 
 const TAB_FALLBACK = (
   <div className="h-full flex items-center justify-center bg-black">
@@ -34,7 +29,7 @@ function AppContent() {
           {activeTab === 'settings' && <ErrorBoundary><Settings /></ErrorBoundary>}
         </Suspense>
       </main>
-      <Navigation />
+      <ErrorBoundary fallback={null}><Navigation /></ErrorBoundary>
     </div>
   );
 }

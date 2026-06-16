@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo, useRef } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 
-export default function Library() {
+function Library() {
   const { library, libraryLoading, setActiveTab, deleteFromLibrary } = useAppContext();
   const [searchQuery, setSearchQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredLibrary = useMemo(() => {
     if (!searchQuery.trim()) return library;
@@ -26,22 +27,34 @@ export default function Library() {
           </div>
           
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
             <input
+              ref={inputRef}
               type="text"
               placeholder="搜索素材..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-neutral-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full md:w-64 transition-all"
+              className="pl-10 pr-10 py-2 bg-white border border-neutral-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full md:w-64 transition-all"
             />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                title="清空搜索"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </header>
 
-        {/* 加载骨架屏 */}
         {libraryLoading && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200">
+              <div key={'skeleton-'+i} className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200">
                 <div className="aspect-square rounded-2xl bg-neutral-100 mb-4 animate-pulse" />
                 <div className="h-4 bg-neutral-100 rounded-full w-2/3 mb-2 animate-pulse" />
                 <div className="flex items-center gap-2">
@@ -109,3 +122,5 @@ export default function Library() {
     </div>
   );
 }
+
+export default memo(Library);

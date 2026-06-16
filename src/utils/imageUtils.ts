@@ -1,7 +1,3 @@
-/**
- * Resize an image to fit within maxWidth/maxHeight while maintaining aspect ratio.
- * Returns base64 string (raw, without prefix).
- */
 export function resizeImage(file: File, maxWidth = 1024, maxHeight = 1024, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();

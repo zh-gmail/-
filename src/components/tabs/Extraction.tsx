@@ -1,74 +1,126 @@
-import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, memo, type ChangeEvent } from 'react';
 import { Upload, Scissors, Download, Palette, AlertCircle } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
-import { HairstyleItem } from '../../types';
+import { useImageUpload } from '../../hooks/useImageUpload';
+import type { HairstyleItem, HairType } from '../../types';
+import { HAIR_TYPE_OPTIONS } from '../../constants/hairTypes';
 import { imageGenClient } from '../../services/imageGenClient';
 import { resizeImage } from '../../utils/imageUtils';
+import { HAIR_COLOR_PRESETS } from '../../constants/hairColors';
 
 const DEMO_DELAY_MS = 1500;
 
-export default function Extraction() {
+function Extraction() {
   const { settings, addToLibrary, setActiveTab } = useAppContext();
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { selectedImage, fileRef, handleFileSelect, clearImage } = useImageUpload();
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedResult, setExtractedResult] = useState<string | null>(null);
-  const [colorName, setColorName] = useState('自定义色');
-  const [colorHex, setColorHex] = useState('#323232');
+  const [colorName, setColorName] = useState('自然黑');
+  const [colorHex, setColorHex] = useState('#1a1a1a');
+  const [selectedType, setSelectedType] = useState<HairType>('short');
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<File | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
+  const demoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      clearTimeout(demoTimerRef.current);
+      abortRef.current?.abort();
     };
   }, []);
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      fileRef.current = file;
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = URL.createObjectURL(file);
-      setSelectedImage(objectUrlRef.current);
-      setExtractedResult(null);
-      setError(null);
-    }
-  };
+  const handleClearImage = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    clearTimeout(demoTimerRef.current);
+    setExtractedResult(null);
+    setError(null);
+    setIsExtracting(false);
+    clearImage();
+  }, [clearImage]);
 
-  const handleExtract = async () => {
+  const noKey = settings.imageProvider === 'fal' ? !settings.imageFalKey : !settings.imageApiKey;
+  const noKeyWarning = noKey ? (
+    <div className="bg-amber-50 text-amber-800 p-4 rounded-xl flex items-start gap-3 border border-amber-200">
+      <AlertCircle className="shrink-0 mt-0.5" size={20} />
+      <div className="text-sm">
+        <p className="font-medium">使用基础版示意提取</p>
+        <p className="opacity-80 mt-1">由于未能在设置中连接图像生成API，当前展示占位示意结果。</p>
+      </div>
+    </div>
+  ) : null;
+
+  const handleImageUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    handleFileSelect(e);
+    if (!e.target.files?.[0]) return;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    requestIdRef.current++;
+    clearTimeout(demoTimerRef.current);
+    setExtractedResult(null);
+    setError(null);
+    setIsExtracting(false);
+  }, [handleFileSelect]);
+
+  const handleExtract = useCallback(async () => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
+
+    const requestId = ++requestIdRef.current;
     setIsExtracting(true);
     setError(null);
 
-    if (!settings.imageApiKey) {
-      setTimeout(() => {
+    const isFal = settings.imageProvider === 'fal';
+    const apiKey = isFal ? settings.imageFalKey : settings.imageApiKey;
+    const apiSecret = isFal ? undefined : (settings.imageApiSecret || undefined);
+
+    if (!apiKey) {
+      clearTimeout(demoTimerRef.current);
+      demoTimerRef.current = setTimeout(() => {
+        if (requestId !== requestIdRef.current) return;
         setExtractedResult('https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&w=400&q=80');
         setIsExtracting(false);
       }, DEMO_DELAY_MS);
       return;
     }
 
+    if (!fileRef.current) {
+      setError('请先上传包含发型的照片');
+      setIsExtracting(false);
+      return;
+    }
+
     try {
       await imageGenClient.setProvider(settings.imageProvider);
-      const base64 = await resizeImage(fileRef.current!);
-      const result = await imageGenClient.extractHairstyle(base64, settings.imageApiKey, settings.imageApiSecret || undefined);
+      const base64 = await resizeImage(fileRef.current);
+      const result = await imageGenClient.extractHairstyle(base64, apiKey, apiSecret, signal);
+      if (requestId !== requestIdRef.current) return;
       setExtractedResult(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '提取失败，请检查 API 配置');
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (requestId !== requestIdRef.current) return;
+      console.error(err);
+      setError('调用失败，请检查 API 配置和网络连接');
     } finally {
-      setIsExtracting(false);
+      if (requestId === requestIdRef.current) {
+        setIsExtracting(false);
+      }
     }
-  };
+  }, [settings]);
 
   const saveToLibrary = () => {
     if (!extractedResult) return;
     const newItem: HairstyleItem = {
-      id: `ext_${Date.now()}`,
+      id: `ext_${crypto.randomUUID()}`,
       name: '提取发型',
-      type: 'short',
+      type: selectedType,
       colorName: colorName,
       colorHex: colorHex,
-      previewUrl: extractedResult
+      previewUrl: extractedResult,
+      createdAt: Date.now(),
     };
     addToLibrary(newItem);
     setActiveTab('library');
@@ -81,6 +133,8 @@ export default function Extraction() {
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">提取素材发型</h1>
           <p className="text-neutral-500">上传带有参考发型的照片，系统将提取其中的发型、发带颜色，并将成果保存到您的本地素材库，可随时用于 AR 实景试戴。</p>
         </header>
+
+        {noKeyWarning}
 
         {error && (
           <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200">
@@ -109,8 +163,8 @@ export default function Extraction() {
                    <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-widest">原图</h3>
                    <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-100 relative group">
                      <img src={selectedImage} alt="Source" loading="lazy" className="w-full h-full object-cover" />
-                     <button 
-                        onClick={() => setSelectedImage(null)}
+                     <button
+                        onClick={handleClearImage}
                         className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm font-medium"
                       >
                         更换照片
@@ -150,7 +204,7 @@ export default function Extraction() {
                </div>
 
                {extractedResult && (
-                 <div className="pt-6 border-t border-neutral-100 space-y-6 animate-in slide-in-from-bottom-4">
+                 <div className="pt-6 border-t border-neutral-100 space-y-6">
                    <div>
                      <label className="block text-sm font-medium text-neutral-900 mb-2 flex items-center gap-2">
                        <Palette size={16} className="text-neutral-500" />
@@ -165,33 +219,43 @@ export default function Extraction() {
                      />
                    </div>
 
-                   {/* 预设发色选择 */}
                    <div>
                      <label className="block text-sm font-medium text-neutral-900 mb-2 flex items-center gap-2">
                        <Palette size={16} className="text-neutral-500" />
                        选择发色
                      </label>
                      <div className="flex flex-wrap gap-3">
-                       {[
-                         { hex: '#1a1a1a', name: '黑色' },
-                         { hex: '#5c3a1e', name: '深棕' },
-                         { hex: '#8b5e3c', name: '浅棕' },
-                         { hex: '#d4a853', name: '金色' },
-                         { hex: '#b84a4a', name: '红色' },
-                         { hex: '#8c8c8c', name: '灰色' },
-                         { hex: '#c4a882', name: '亚麻' },
-                         { hex: '#e8d8c8', name: '米白' },
-                         { hex: '#4a6fa5', name: '蓝色' },
-                         { hex: '#6b3a5a', name: '紫色' },
-                       ].map((c) => (
+                       {HAIR_COLOR_PRESETS.map((c) => (
                          <button
                            key={c.hex}
                            type="button"
-                           onClick={() => setColorHex(c.hex)}
+                           onClick={() => { setColorHex(c.hex); setColorName(c.name); }}
                            title={c.name}
                            className={`w-8 h-8 rounded-full border-2 transition-all ${colorHex === c.hex ? 'border-black scale-110 shadow-md' : 'border-neutral-300 hover:scale-110'}`}
                            style={{ backgroundColor: c.hex }}
                          />
+                       ))}
+                     </div>
+                   </div>
+
+                   <div>
+                     <label className="block text-sm font-medium text-neutral-900 mb-2">
+                       发型类型
+                     </label>
+                     <div className="flex flex-wrap gap-2">
+                       {HAIR_TYPE_OPTIONS.map(opt => (
+                         <button
+                           key={opt.value}
+                           type="button"
+                           onClick={() => setSelectedType(opt.value)}
+                           className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                             selectedType === opt.value
+                               ? 'bg-black text-white shadow-md'
+                               : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                           }`}
+                         >
+                           {opt.label}
+                         </button>
                        ))}
                      </div>
                    </div>
@@ -212,3 +276,5 @@ export default function Extraction() {
     </div>
   );
 }
+
+export default memo(Extraction);

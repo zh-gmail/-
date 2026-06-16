@@ -1,9 +1,12 @@
-import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, memo, type ChangeEvent } from 'react';
 import { Upload, Sparkles, AlertCircle, Bookmark } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
+import { useImageUpload } from '../../hooks/useImageUpload';
 import { imageGenClient } from '../../services/imageGenClient';
 import { resizeImage } from '../../utils/imageUtils';
+import { HAIR_TYPE_OPTIONS } from '../../constants/hairTypes';
 import type { HairType } from '../../types';
+import { HAIR_COLOR_PRESETS } from '../../constants/hairColors';
 
 const DEMO_DELAY_MS = 2000;
 
@@ -15,24 +18,30 @@ const DEMO_RESULTS = [
   'https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?auto=format&fit=crop&w=400&q=80',
 ];
 
-export default function PhotoEdit() {
+function PhotoEdit() {
   const { settings, addToLibrary } = useAppContext();
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { selectedImage, fileRef, handleFileSelect, clearImage } = useImageUpload();
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<string[]>([]);
-  const [savedIndices, setSavedIndices] = useState<Set<number>>(new Set());
+  const [savedIndices, setSavedIndices] = useState<Set<number>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<HairType>('bob');
-  const fileRef = useRef<File | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
+  const [selectedColorName, setSelectedColorName] = useState('自然黑');
+  const [selectedColorHex, setSelectedColorHex] = useState('#1a1a1a');
+  const demoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const HAIR_TYPE_OPTIONS: { value: HairType; label: string }[] = [
-    { value: 'short', label: '短发' },
-    { value: 'buzz', label: '寸头' },
-    { value: 'wool', label: '羊毛卷' },
-    { value: 'long', label: '长发' },
-    { value: 'bob', label: '波波头' },
-  ];
+  const handleClearImage = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    clearTimeout(demoTimerRef.current);
+    setResults([]);
+    setSavedIndices(new Set());
+    setError(null);
+    setIsGenerating(false);
+    clearImage();
+  }, [clearImage]);
 
   const noKey = settings.imageProvider === 'fal' ? !settings.imageFalKey : !settings.imageApiKey;
   const noKeyWarning = noKey ? (
@@ -47,36 +56,43 @@ export default function PhotoEdit() {
 
   useEffect(() => {
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      clearTimeout(demoTimerRef.current);
+      abortRef.current?.abort();
     };
   }, []);
 
-  const handleSaveToLibrary = (url: string, idx: number) => {
+  const handleSaveToLibrary = useCallback((url: string, idx: number) => {
     addToLibrary({
-      id: `photo-${Date.now()}-${idx}`,
+      id: `photo-${crypto.randomUUID()}-${idx}`,
       name: `AI 生成发型 ${idx + 1}`,
       type: selectedType,
-      colorName: '自然黑',
-      colorHex: '#2c2c2c',
+      colorName: selectedColorName,
+      colorHex: selectedColorHex,
       previewUrl: url,
+      createdAt: Date.now(),
     });
     setSavedIndices(prev => new Set(prev).add(idx));
-  };
+  }, [addToLibrary, selectedType, selectedColorName, selectedColorHex]);
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      fileRef.current = file;
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = URL.createObjectURL(file);
-      setSelectedImage(objectUrlRef.current);
-      setResults([]);
-      setSavedIndices(new Set());
-      setError(null);
-    }
-  };
+  const handleImageUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    handleFileSelect(e);
+    if (!e.target.files?.[0]) return;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    requestIdRef.current++;
+    clearTimeout(demoTimerRef.current);
+    setResults([]);
+    setSavedIndices(new Set());
+    setError(null);
+    setIsGenerating(false);
+  }, [handleFileSelect]);
 
-  const generateHairstyles = async () => {
+  const generateHairstyles = useCallback(async () => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
+
+    const requestId = ++requestIdRef.current;
     setIsGenerating(true);
     setError(null);
 
@@ -85,7 +101,9 @@ export default function PhotoEdit() {
     const apiSecret = isFal ? undefined : (settings.imageApiSecret || undefined);
 
     if (!apiKey) {
-      setTimeout(() => {
+      clearTimeout(demoTimerRef.current);
+      demoTimerRef.current = setTimeout(() => {
+        if (requestId !== requestIdRef.current) return;
         setResults(DEMO_RESULTS);
         setIsGenerating(false);
       }, DEMO_DELAY_MS);
@@ -102,15 +120,21 @@ export default function PhotoEdit() {
     try {
       await imageGenClient.setProvider(settings.imageProvider);
       const base64 = await resizeImage(file);
-      const images = await imageGenClient.generateHairstyles(base64, apiKey, apiSecret);
+      const images = await imageGenClient.generateHairstyles(base64, apiKey, apiSecret, signal);
+      if (requestId !== requestIdRef.current) return;
       setResults(images.length > 0 ? images : DEMO_RESULTS);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '生成失败，请检查 API 配置');
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (requestId !== requestIdRef.current) return;
+      console.error(err);
+      setError('调用失败，请检查 API 配置和网络连接');
       setResults(DEMO_RESULTS);
     } finally {
-      setIsGenerating(false);
+      if (requestId === requestIdRef.current) {
+        setIsGenerating(false);
+      }
     }
-  };
+  }, [settings]);
 
   return (
     <div className="h-full bg-neutral-50 flex flex-col p-6 overflow-y-auto pb-32">
@@ -146,8 +170,8 @@ export default function PhotoEdit() {
             <div className="space-y-6">
               <div className="relative h-72 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-100">
                 <img src={selectedImage} alt="Uploaded" className="w-full h-full object-contain" />
-                <button 
-                  onClick={() => setSelectedImage(null)}
+                <button
+                  onClick={handleClearImage}
                   className="absolute top-4 right-4 px-4 py-2 bg-black/50 hover:bg-black text-white text-sm rounded-full backdrop-blur-md transition-colors"
                 >
                   更换图片
@@ -178,29 +202,49 @@ export default function PhotoEdit() {
         </div>
 
         {results.length > 0 && (
-          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold tracking-tight text-neutral-900">生成结果</h3>
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-neutral-500 font-medium">发型类型</label>
-                <select
-                  value={selectedType}
-                  onChange={e => setSelectedType(e.target.value as HairType)}
-                  className="text-sm border border-neutral-300 rounded-lg px-3 py-1.5 bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                >
-                  {HAIR_TYPE_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-neutral-500 font-medium">发色</span>
+                  <div className="flex gap-1.5">
+                    {HAIR_COLOR_PRESETS.map(c => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => { setSelectedColorName(c.name); setSelectedColorHex(c.hex); }}
+                        title={c.name}
+                        className={`w-6 h-6 rounded-full border-2 transition-all ${
+                          selectedColorHex === c.hex ? 'border-black scale-110 shadow-sm' : 'border-transparent hover:scale-110'
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-neutral-500 font-medium">发型类型</label>
+                  <select
+                    value={selectedType}
+                    onChange={e => setSelectedType(e.target.value as HairType)}
+                    className="text-sm border border-neutral-300 rounded-lg px-3 py-1.5 bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                  >
+                    {HAIR_TYPE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {results.map((r, idx) => (
-                <div key={idx} className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
+                <div key={`photo-result-${idx}`} className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
                   <img src={r} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="variation" />
                   <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between">
                     <span className="text-white text-xs font-mono tracking-widest">发型风格 {idx + 1}</span>
                     <button
+                      data-testid={`save-btn-${idx}`}
                       onClick={() => handleSaveToLibrary(r, idx)}
                       disabled={savedIndices.has(idx)}
                       className={`p-2 rounded-full transition-all ${savedIndices.has(idx) ? 'bg-green-500 text-white' : 'bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm'}`}
@@ -217,3 +261,5 @@ export default function PhotoEdit() {
     </div>
   );
 }
+
+export default memo(PhotoEdit);

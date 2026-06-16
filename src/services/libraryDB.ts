@@ -1,5 +1,4 @@
-import { HairstyleItem } from '../types';
-import { MOCK_LIBRARY } from '../data/mockLibrary';
+import type { HairstyleItem } from '../types';
 
 const DB_NAME = 'HairLibrary';
 const DB_VERSION = 1;
@@ -13,11 +12,21 @@ function openDB(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        MOCK_LIBRARY.forEach((item) => store.put(item));
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onblocked = () => {
+      dbPromise = null;
+      reject(new Error('IndexedDB 升级被其他标签页阻塞，请关闭其他页面后重试'));
+    };
     request.onerror = () => {
       dbPromise = null;
       reject(request.error);
@@ -48,23 +57,23 @@ export async function saveItem(item: HairstyleItem): Promise<void> {
   });
 }
 
-export async function deleteItem(id: string): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    store.delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
 export async function clearAll(): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function deleteItem(id: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

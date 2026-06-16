@@ -3,11 +3,7 @@ import { Component, type ReactNode } from 'react';
 interface Props { children: ReactNode; fallback?: ReactNode; }
 interface State { hasError: boolean; }
 
-/** Catches rendering errors in child components, shows fallback UI instead of blank screen */
 export default class ErrorBoundary extends Component<Props, State> {
-  declare state: State;
-  declare props: Props;
-
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -15,6 +11,10 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(): State {
     return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    console.error('ErrorBoundary caught:', error, errorInfo);
   }
 
   render() {

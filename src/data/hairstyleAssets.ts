@@ -1,4 +1,4 @@
-import { HairstyleAsset } from '../services/arEngine';
+import type { HairstyleAsset } from '../types';
 
 export const HAIRSTYLE_ASSETS: HairstyleAsset[] = [
   {

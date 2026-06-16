@@ -1,21 +1,12 @@
-import { MindARThree } from '../vendor/mindar-face-three.js';
-import type { Object3D, WebGLRenderer, Scene, PerspectiveCamera, Mesh } from 'three';
-import { Color } from 'three';
+import type { Object3D, WebGLRenderer, Scene, PerspectiveCamera } from 'three';
+import { Color, Mesh } from 'three';
+import type { MindARThree } from '../vendor/mindar-face-three.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import type { HairstyleAsset } from '../types';
 
 export interface AREngineConfig {
-  licenseKey: string;
   previewElement: HTMLElement;
-}
-
-export interface HairstyleAsset {
-  id: string;
-  name: string;
-  effectUrl: string;
-  thumbnailUrl: string;
-  scale?: [number, number, number];
-  position?: [number, number, number];
 }
 
 export type FaceTrackingCallback = (detected: boolean) => void;
@@ -33,8 +24,8 @@ export interface AREngineInstance {
 const loader = new GLTFLoader();
 
 class MindAREngine implements AREngineInstance {
-  private mindarThree: InstanceType<typeof MindARThree> | null = null;
-  private anchor: any = null;
+  private mindarThree: MindARThree | null = null;
+  private anchor: { group: Object3D } | null = null;
   private currentModel: Object3D | null = null;
   private ready = false;
   private faceCb: FaceTrackingCallback | null = null;
@@ -46,6 +37,7 @@ class MindAREngine implements AREngineInstance {
   private modelCleanupFns: Array<() => void> = [];
   private rafHandle: number | null = null;
   private renderLoop = (): void => {};
+  private _loadVersion = 0;
 
   async init(config: AREngineConfig): Promise<void> {
     const containerEl = config.previewElement;
@@ -57,42 +49,47 @@ class MindAREngine implements AREngineInstance {
     const testCanvas = document.createElement('canvas');
     const gl = testCanvas.getContext('webgl') || testCanvas.getContext('webgl2');
     if (!gl) {
+      testCanvas.remove();
       throw new Error('当前浏览器不支持 WebGL，无法运行 AR 引擎');
     }
+    testCanvas.remove();
 
-    this.mindarThree = new MindARThree({
+    // Dynamic import — 2.2MB model weights only load when user opens LiveCamera tab
+    const { MindARThree: MindARThreeCtor } = await import('../vendor/mindar-face-three.js');
+    this.mindarThree = new MindARThreeCtor({
       container: containerEl,
       uiLoading: 'no',
       uiScanning: 'no',
       uiError: 'no',
     });
 
-    this.scene = (this.mindarThree as any).scene as Scene;
-    this.camera = (this.mindarThree as any).camera as PerspectiveCamera;
-    this.renderer = (this.mindarThree as any).renderer as WebGLRenderer;
-    // Transparent clear — camera video sits behind Three.js (z-index: -2 in MindAR)
+    this.scene = this.mindarThree.scene;
+    this.camera = this.mindarThree.camera;
+    this.renderer = this.mindarThree.renderer;
     this.renderer.setClearAlpha(0);
 
-    // Use anchor 10 (forehead top) — good for hair placement
     this.anchor = this.mindarThree.addAnchor(10);
 
-    await (this.mindarThree as any).start();
+    await this.mindarThree.start();
 
-    // Force resize — MindAR's internal _resize may not run reliably in StrictMode
-    try { (this.mindarThree as any)._resize(); } catch { /* StrictMode: recovers next frame */ console.warn('MindAR _resize failed (harmless in StrictMode)'); }
+    // _resize may not run reliably in StrictMode
+    try { this.mindarThree._resize(); } catch (err) { console.warn('MindAR _resize failed (expected in StrictMode, next frame recovers):', err); }
 
-    // Start Three.js render loop — MindAR does NOT auto-render
+    if (this.rafHandle !== null) {
+      cancelAnimationFrame(this.rafHandle);
+      this.rafHandle = null;
+    }
     this.renderLoop = () => {
       if (!this.mindarThree || !this.renderer || !this.scene || !this.camera) return;
       this.renderer.render(this.scene, this.camera);
-      (this.mindarThree as any).cssRenderer?.render((this.mindarThree as any).cssScene, this.camera);
+      this.mindarThree.cssRenderer.render(this.mindarThree.cssScene, this.camera);
       this.rafHandle = requestAnimationFrame(this.renderLoop);
     };
     this.rafHandle = requestAnimationFrame(this.renderLoop);
 
     this.faceCheckTimer = setInterval(() => {
       if (!this.mindarThree) return;
-      const estimate = (this.mindarThree as any).getLatestEstimate();
+      const estimate = this.mindarThree.getLatestEstimate();
       const detected = estimate !== null;
       if (detected !== this.lastFaceDetected) {
         this.lastFaceDetected = detected;
@@ -107,12 +104,17 @@ class MindAREngine implements AREngineInstance {
     if (!this.anchor || !this.scene) return;
     if (!asset.effectUrl) return;
 
-    try {
-      const gltf = await new Promise<GLTF>((resolve, reject) => {
-        loader.load(asset.effectUrl, resolve, undefined, reject);
-      });
+    const version = ++this._loadVersion;
 
-      // Remove old model only after new one loads successfully
+    try {
+      const gltf = await new Promise<GLTF | undefined>((resolve, reject) => {
+        loader.load(asset.effectUrl, (model) => {
+          if (version !== this._loadVersion) { resolve(undefined); return; }
+          resolve(model);
+        }, undefined, reject);
+      });
+      if (!gltf) return;
+
       this._removeCurrentModel();
 
       this.currentModel = gltf.scene;
@@ -123,8 +125,8 @@ class MindAREngine implements AREngineInstance {
       this.currentModel.position.set(p[0], p[1], p[2]);
 
       this.currentModel.traverse((child) => {
-        if ((child as Mesh).isMesh) {
-          (child as Mesh).frustumCulled = false;
+        if (child instanceof Mesh) {
+          child.geometry.computeBoundingSphere();
         }
       });
 
@@ -132,19 +134,19 @@ class MindAREngine implements AREngineInstance {
 
       this.modelCleanupFns.push(() => {
         gltf.scene.traverse((child) => {
-          if ((child as Mesh).isMesh) {
-            const mesh = child as Mesh;
-            mesh.geometry?.dispose();
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => m.dispose());
+          if (child instanceof Mesh) {
+            child.geometry?.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
             } else {
-              mesh.material?.dispose();
+              child.material?.dispose();
             }
           }
         });
       });
     } catch (err) {
       console.error('Failed to load hairstyle model:', asset.effectUrl, err);
+      throw err;
     }
   }
 
@@ -152,11 +154,10 @@ class MindAREngine implements AREngineInstance {
     if (!this.currentModel) return;
     const color = new Color(hex);
     this.currentModel.traverse((child) => {
-      if ((child as Mesh).isMesh) {
-        const mesh = child as Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      if (child instanceof Mesh) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
         for (const mat of materials) {
-          if ('color' in mat) (mat.color as Color).copy(color);
+          if ('color' in mat && mat.color instanceof Color) mat.color.copy(color);
         }
       }
     });
@@ -168,7 +169,7 @@ class MindAREngine implements AREngineInstance {
 
   async takeScreenshot(): Promise<string> {
     if (!this.renderer) return '';
-    return (this.renderer as any).domElement.toDataURL('image/png');
+    return this.renderer.domElement.toDataURL('image/png');
   }
 
   destroy(): void {
@@ -185,9 +186,7 @@ class MindAREngine implements AREngineInstance {
     this._removeCurrentModel();
 
     if (this.mindarThree) {
-      try {
-        (this.mindarThree as any).stop();
-      } catch { /* destroy: no recovery path */ console.warn('MindAR stop failed during destroy'); }
+      try { this.mindarThree.stop(); } catch (err) { console.warn('MindAR stop failed during destroy:', err); }
       this.mindarThree = null;
     }
 

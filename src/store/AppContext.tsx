@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AppSettings, HairstyleItem, TabState } from '../types';
-import { getAllItems, saveItem, deleteItem } from '../services/libraryDB';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import type { AppSettings, HairstyleItem, TabState, ImageProviderType } from '../types';
+import { getAllItems, saveItem, deleteItem, clearAll } from '../services/libraryDB';
+import { seedLibrary } from '../data/seed';
 
 interface AppContextType {
   activeTab: TabState;
@@ -11,19 +12,29 @@ interface AppContextType {
   libraryLoading: boolean;
   addToLibrary: (item: HairstyleItem) => void;
   deleteFromLibrary: (id: string) => void;
+  clearLibrary: () => Promise<void>;
   currentHairstyleIndex: number;
   setCurrentHairstyleIndex: React.Dispatch<React.SetStateAction<number>>;
-  nextHairstyle: () => void;
-  prevHairstyle: () => void;
   getCurrentHairstyle: () => HairstyleItem;
 }
 
-const defaultSettings: AppSettings = {
-  imageApiKey: import.meta.env.VITE_BAIDU_API_KEY || import.meta.env.VITE_DASHSCOPE_API_KEY || '',
-  imageApiSecret: import.meta.env.VITE_BAIDU_SECRET_KEY || '',
-  imageFalKey: import.meta.env.VITE_FAL_KEY || '',
-  imageProvider: 'baidu',
+const PLACEHOLDER_HAIRSTYLE: HairstyleItem = {
+  id: 'placeholder', name: '无素材', type: 'short' as const,
+  colorName: '—', colorHex: '#666666', previewUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E', createdAt: 0,
 };
+
+const defaultSettings: AppSettings = (() => {
+  const baiduKey = import.meta.env.VITE_BAIDU_API_KEY || '';
+  const dashscopeKey = import.meta.env.VITE_DASHSCOPE_API_KEY || '';
+  const falKey = import.meta.env.VITE_FAL_KEY || '';
+  const provider: ImageProviderType = baiduKey ? 'baidu' : dashscopeKey ? 'ali' : falKey ? 'fal' : 'baidu';
+  return {
+    imageApiKey: baiduKey || dashscopeKey || '',
+    imageApiSecret: import.meta.env.VITE_BAIDU_SECRET_KEY || '',
+    imageFalKey: falKey,
+    imageProvider: provider,
+  };
+})();
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -33,7 +44,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const saved = localStorage.getItem('app_settings');
       return saved ? JSON.parse(saved) : defaultSettings;
-    } catch {
+    } catch (err) {
+      console.warn('Failed to parse settings from localStorage:', err);
       return defaultSettings;
     }
   });
@@ -42,62 +54,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentHairstyleIndex, setCurrentHairstyleIndex] = useState(0);
 
   useEffect(() => {
-    localStorage.setItem('app_settings', JSON.stringify(settings));
+    try {
+      localStorage.setItem('app_settings', JSON.stringify(settings));
+    } catch (err) {
+      console.warn('Failed to persist settings to localStorage:', err);
+    }
   }, [settings]);
 
   useEffect(() => {
+    let cancelled = false;
     setLibraryLoading(true);
     getAllItems()
-      .then(setLibrary)
+      .then(async (items) => {
+        if (items.length === 0) {
+          await seedLibrary();
+          if (cancelled) return;
+          items = await getAllItems();
+        }
+        items.sort((a, b) => b.createdAt - a.createdAt);
+        setLibrary(items);
+      })
       .catch((err) => console.error('Failed to load library from IndexedDB:', err))
-      .finally(() => setLibraryLoading(false));
+      .finally(() => { if (!cancelled) setLibraryLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  const updateSettings = (newSettings: Partial<AppSettings>) => {
+  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
-  };
+  }, []);
 
-  const addToLibrary = (item: HairstyleItem) => {
+  const addToLibrary = useCallback((item: HairstyleItem) => {
     saveItem(item).catch((err) => console.error('Failed to save to library:', err));
-    setLibrary((prev) => [...prev, item]);
-  };
+    setLibrary((prev) => [item, ...prev]);
+  }, []);
 
-  const deleteFromLibrary = (id: string) => {
+  const deleteFromLibrary = useCallback((id: string) => {
     deleteItem(id).catch((err) => console.error('Failed to delete from library:', err));
     setLibrary((prev) => prev.filter((i) => i.id !== id));
-  };
+  }, []);
 
-  const nextHairstyle = () => {
-    setCurrentHairstyleIndex((prev) => (prev + 1) % Math.max(library.length, 1));
-  };
+  const clearLibrary = useCallback(async () => {
+    try {
+      await clearAll();
+      setLibrary([]);
+    } catch (err) {
+      console.error('Failed to clear library:', err);
+    }
+  }, []);
 
-  const prevHairstyle = () => {
-    setCurrentHairstyleIndex((prev) => (prev - 1 + Math.max(library.length, 1)) % Math.max(library.length, 1));
-  };
+  useEffect(() => {
+    setCurrentHairstyleIndex((current) => {
+      if (library.length > 0 && current >= library.length) {
+        return library.length - 1;
+      }
+      return current;
+    });
+  }, [library.length]);
 
-  const getCurrentHairstyle = () => library[currentHairstyleIndex] || {
-    id: 'placeholder', name: '无素材', type: 'short' as const,
-    colorName: '—', colorHex: '#666666', previewUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E',
-  };
+  const getCurrentHairstyle = useCallback(() => library[currentHairstyleIndex] || PLACEHOLDER_HAIRSTYLE, [library, currentHairstyleIndex]);
+
+  const contextValue = useMemo(() => ({
+    activeTab,
+    setActiveTab,
+    settings,
+    updateSettings,
+    library,
+    libraryLoading,
+    addToLibrary,
+    deleteFromLibrary,
+    clearLibrary,
+    currentHairstyleIndex,
+    setCurrentHairstyleIndex,
+    getCurrentHairstyle,
+  }), [activeTab, settings, library, libraryLoading, addToLibrary, currentHairstyleIndex,
+      setCurrentHairstyleIndex, deleteFromLibrary, clearLibrary, getCurrentHairstyle, updateSettings]);
 
   return (
-    <AppContext.Provider
-      value={{
-        activeTab,
-        setActiveTab,
-        settings,
-        updateSettings,
-        library,
-        libraryLoading,
-        addToLibrary,
-        deleteFromLibrary,
-        currentHairstyleIndex,
-        setCurrentHairstyleIndex,
-        nextHairstyle,
-        prevHairstyle,
-        getCurrentHairstyle
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

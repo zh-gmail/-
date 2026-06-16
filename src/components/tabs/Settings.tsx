@@ -1,27 +1,43 @@
-import { useState, useRef, useEffect } from 'react';
-import { KeyRound, ShieldCheck, Cpu, Sparkles, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { KeyRound, ShieldCheck, Cpu, Sparkles, Loader2, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 import { imageGenClient } from '../../services/imageGenClient';
 import type { ImageProviderType } from '../../types';
 
-export default function Settings() {
-  const { settings, updateSettings } = useAppContext();
+const PROVIDER_OPTIONS: [ImageProviderType, string][] = [
+  ['baidu', '百度文心一言'],
+  ['ali', '阿里通义万相'],
+  ['fal', 'FAL AI'],
+];
+
+function Settings() {
+  const { settings, updateSettings, clearLibrary } = useAppContext();
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     return () => clearTimeout(idleTimerRef.current);
   }, []);
 
+  // Reset connection test status when switching provider
+  useEffect(() => {
+    setTestStatus('idle');
+  }, [settings.imageProvider]);
+
   const isFal = settings.imageProvider === 'fal';
   const baiduNeedsSecret = settings.imageProvider === 'baidu';
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = useCallback(async () => {
     const key = isFal ? settings.imageFalKey : settings.imageApiKey;
     if (!key) return;
+    clearTimeout(idleTimerRef.current);
     setTestStatus('testing');
     try {
-      await imageGenClient.setProvider(settings.imageProvider);
+      if (imageGenClient.getProviderName() !== settings.imageProvider) {
+        await imageGenClient.setProvider(settings.imageProvider);
+      }
       const ok = isFal
         ? await imageGenClient.testConnection(key)
         : await imageGenClient.testConnection(key, settings.imageApiSecret || undefined);
@@ -31,7 +47,7 @@ export default function Settings() {
       setTestStatus('fail');
     }
     idleTimerRef.current = setTimeout(() => setTestStatus('idle'), 4000);
-  };
+  }, [settings]);
 
   return (
     <div className="h-full bg-neutral-50 flex flex-col p-6 overflow-y-auto pb-32">
@@ -46,7 +62,7 @@ export default function Settings() {
             <Cpu className="text-neutral-400" size={24} />
             <h2 className="text-xl font-medium text-neutral-900 tracking-tight">商用级引擎接口</h2>
           </div>
-          
+
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-neutral-200 space-y-6">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-neutral-900">AR 面部追踪引擎</label>
@@ -63,19 +79,37 @@ export default function Settings() {
 
         <section className="space-y-6">
           <div className="flex items-center gap-3 border-b border-neutral-200 pb-4">
+            <h2 className="text-xl font-medium text-neutral-900 tracking-tight">数据管理</h2>
+          </div>
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-neutral-200 space-y-4">
+            <p className="text-sm text-neutral-600">清空 IndexedDB 中所有已保存的发型素材。此操作不可撤销，清空后下次刷新页面将重新加载默认素材。</p>
+            <button
+              onClick={() => {
+                if (window.confirm('确定要清空全部素材库吗？此操作不可撤销。')) {
+                  clearLibrary();
+                }
+              }}
+              className="px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-all"
+            >
+              清空本地素材库
+            </button>
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-neutral-200 pb-4">
             <Sparkles className="text-neutral-400" size={24} />
             <h2 className="text-xl font-medium text-neutral-900 tracking-tight">AI 绘画 / 局部重绘服务</h2>
           </div>
 
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-neutral-200 space-y-6">
-            {/* Provider selection */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-neutral-900">图像生成服务商</label>
               <div className="flex gap-3">
-                {([['baidu', '百度文心一言'], ['ali', '阿里通义万相'], ['fal', 'FAL AI']] as const).map(([key, label]) => (
+                {PROVIDER_OPTIONS.map(([key, label]) => (
                   <button
                     key={key}
-                    onClick={() => updateSettings({ imageProvider: key as ImageProviderType })}
+                    onClick={() => updateSettings({ imageProvider: key })}
                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
                       settings.imageProvider === key
                         ? 'bg-black text-white border-black'
@@ -88,7 +122,6 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* API Key */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-neutral-900">
                 {isFal ? 'FAL API Key' : settings.imageProvider === 'baidu' ? '百度 API Key (Client ID)' : '通义万相 API Key'}
@@ -101,33 +134,47 @@ export default function Settings() {
               <div className="relative">
                 <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                 <input
-                  type="password"
+                  type={showApiKey ? 'text' : 'password'}
                   value={isFal ? settings.imageFalKey : settings.imageApiKey}
                   onChange={(e) => updateSettings(isFal ? { imageFalKey: e.target.value } : { imageApiKey: e.target.value })}
                   placeholder={isFal ? 'FAL Key (fal-...)' : settings.imageProvider === 'baidu' ? '百度 Client ID' : 'sk-****'}
-                  className="pl-12 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full transition-all font-mono text-sm"
+                  className="pl-12 pr-12 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full transition-all font-mono text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
-            {/* Baidu API Secret */}
             {baiduNeedsSecret && (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-neutral-900">百度 Secret Key (Client Secret)</label>
                 <div className="relative">
                   <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                   <input
-                    type="password"
+                    type={showApiSecret ? 'text' : 'password'}
                     value={settings.imageApiSecret}
                     onChange={(e) => updateSettings({ imageApiSecret: e.target.value })}
                     placeholder="百度 Client Secret"
-                    className="pl-12 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full transition-all font-mono text-sm"
+                    className="pl-12 pr-12 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full transition-all font-mono text-sm"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiSecret(!showApiSecret)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showApiSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Test connection */}
             <div className="flex items-center gap-3">
               <button
                 onClick={handleTestConnection}
@@ -155,3 +202,5 @@ export default function Settings() {
     </div>
   );
 }
+
+export default memo(Settings);
