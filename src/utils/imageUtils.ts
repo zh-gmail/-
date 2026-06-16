@@ -20,7 +20,8 @@ export function resizeImage(file: File, maxWidth = 1024, maxHeight = 1024, quali
       }
       ctx.drawImage(img, 0, 0, width, height);
       const dataUrl = canvas.toDataURL('image/jpeg', quality);
-      resolve(dataUrl.split(',')[1]);
+      const parts = dataUrl.split(',');
+      resolve(parts.length > 1 ? parts[1] : '');
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);

@@ -3,7 +3,7 @@ import { Search, Sparkles, X } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 
 function Library() {
-  const { library, libraryLoading, setActiveTab, deleteFromLibrary } = useAppContext();
+  const { library, libraryLoading, libraryError, clearLibraryError, setActiveTab, deleteFromLibrary } = useAppContext();
   const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +50,13 @@ function Library() {
             )}
           </div>
         </header>
+
+        {libraryError && (
+          <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200" role="alert">
+            <span className="text-sm flex-1">{libraryError}</span>
+            <button onClick={clearLibraryError} className="text-red-400 hover:text-red-600 text-sm font-medium">关闭</button>
+          </div>
+        )}
 
         {libraryLoading && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

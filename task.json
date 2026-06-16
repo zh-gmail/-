@@ -2,8 +2,8 @@
   "project": "AI Hair Stylist Pro",
   "description": "AI 虚拟换发型 Web 应用 — AR 面部追踪 + 3D 发型叠加 + AI 照片换发",
   "createdAt": "2026-06-16",
-  "verifiedAt": "2026-06-17",
-  "verifiedBy": "lint+build+tests 全部通过 (60/60), task 24 身份保持验证通过 — 2026-06-16 终验. Review: fixed package.json name, AppContext nextHairstyle/prevHairstyle, added tasks 29-31. 2026-06-16 深度审查: fixed package.json clean script, added tasks 32-33. 2026-06-16 二次深度审查: fixed WHAT comments in imageGenClient/imageUtils, added setProvider guard, added task 34. 2026-06-17 全维度审查: fixed Library.test.tsx empty state test (mock pattern), removed @mediapipe/tasks-vision dead dep, fixed clean script cross-platform, added task 37. 2026-06-17 project-review: fixed AppContext useCallback/useMemo + sessionStorage, skeleton key indices, added tasks 38-41. 2026-06-17 独立审查: fixed mockLibrary alpha hex, Extraction color preset sync, test sessionStorage pollution, added task 42. 2026-06-17 实现: tasks 39/41/42 — frustumCulled → computeBoundingSphere, ERNIE 模型常量, 删除索引漂移修复. 2026-06-17 全维度审查: fixed vite @ alias → src/, removed experimentalDecorators, npm dedupe, deleted stale review-output.json, added tasks 46-47. 2026-06-17 实现: task 47 — React.memo + useCallback 优化 (5 components), lint+build+tests (64/64) passed. 2026-06-17 全维度审查: added React.memo to Library.tsx (6th component), added tasks 49-50 (Extraction no-key banner + API AbortController), build+tests (64/64) passed. 2026-06-17 全维度审查 vol.2: fixed Extraction.tsx build-breaking bug (demoTimerRef split declaration), suppressed chunkSizeWarningLimit, cleaned falProvider WHAT comment, lint+build+tests (64/64) passed. 2026-06-17 深度审查: npm prune removed 7 extraneous packages, added tasks 53 (LiveCamera fragile test) + 54 (libraryDB versionchange), npm audit noted esbuild vuln (low runtime risk). 2026-06-17 实现: task 50 — AbortController 6 files (imageGenClient/baiduProvider/aliProvider/falProvider/PhotoEdit/Extraction), tsc --noEmit clean per-file. 2026-06-17 全维度审查: removed Google Fonts @import (CSP-blocked dead code), fixed imageUtils comment (WHAT), added tasks 57-59 (font theme cleanup, test tsc check, Navigation a11y). build+tests (66/66) passed.",
+  "verifiedAt": "2026-06-17 01:39",
+  "verifiedBy": "lint+build+tests 全部通过 (60/60), task 24 身份保持验证通过 — 2026-06-16 终验. Review: fixed package.json name, AppContext nextHairstyle/prevHairstyle, added tasks 29-31. 2026-06-16 深度审查: fixed package.json clean script, added tasks 32-33. 2026-06-16 二次深度审查: fixed WHAT comments in imageGenClient/imageUtils, added setProvider guard, added task 34. 2026-06-17 全维度审查: fixed Library.test.tsx empty state test (mock pattern), removed @mediapipe/tasks-vision dead dep, fixed clean script cross-platform, added task 37. 2026-06-17 project-review: fixed AppContext useCallback/useMemo + sessionStorage, skeleton key indices, added tasks 38-41. 2026-06-17 独立审查: fixed mockLibrary alpha hex, Extraction color preset sync, test sessionStorage pollution, added task 42. 2026-06-17 实现: tasks 39/41/42 — frustumCulled → computeBoundingSphere, ERNIE 模型常量, 删除索引漂移修复. 2026-06-17 全维度审查: fixed vite @ alias → src/, removed experimentalDecorators, npm dedupe, deleted stale review-output.json, added tasks 46-47. 2026-06-17 实现: task 47 — React.memo + useCallback 优化 (5 components), lint+build+tests (64/64) passed. 2026-06-17 全维度审查: added React.memo to Library.tsx (6th component), added tasks 49-50 (Extraction no-key banner + API AbortController), build+tests (64/64) passed. 2026-06-17 全维度审查 vol.2: fixed Extraction.tsx build-breaking bug (demoTimerRef split declaration), suppressed chunkSizeWarningLimit, cleaned falProvider WHAT comment, lint+build+tests (64/64) passed. 2026-06-17 深度审查: npm prune removed 7 extraneous packages, added tasks 53 (LiveCamera fragile test) + 54 (libraryDB versionchange), npm audit noted esbuild vuln (low runtime risk). 2026-06-17 实现: task 50 — AbortController 6 files (imageGenClient/baiduProvider/aliProvider/falProvider/PhotoEdit/Extraction), tsc --noEmit clean per-file. 2026-06-17 全维度审查: removed Google Fonts @import (CSP-blocked dead code), fixed imageUtils comment (WHAT), added tasks 57-59 (font theme cleanup, test tsc check, Navigation a11y). build+tests (66/66) passed. 2026-06-17 全维度审查: fixed PhotoEdit/Extraction 上传文件大小校验, update task 62 passes:true, added tasks 63-65 (Navigation fallback, libraryDB error null, falProvider parallel canvas). build+tests (66/66) passed. 2026-06-17 实现: tasks 63/64/65 — MinimalNav fallback in App.tsx, libraryDB 5 error null guards, falProvider Promise.all parallelization. lint+build+tests (66/66) passed. 2026-06-17 全维度审查: fixed useImageUpload file input value reset, added tasks 66-68 (DeepAR dead files, AR screenshot composite, file input fix). build+tests (66/66) passed. 2026-06-17 实现: tasks 66/67/68 — 删除 public/deepar/ 48MB 死文件, AR 截图 Canvas2D 合成视频帧+3D, 确认 useImageUpload file input value 已修复. lint+build+tests (66/66) passed.",
   "tasks": [
     {
       "id": 1,
@@ -802,6 +802,81 @@
         "确认 dist/ 构建产物中不包含该脚本的输出",
         "如果确认无引用，可删除 scripts/generate-hair-models.mjs",
         "或保留并在 README 中注明该脚本仅为历史参考"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 63,
+      "title": "Navigation ErrorBoundary fallback 不渲染任何内容",
+      "description": "App.tsx 中 Navigation 被 `<ErrorBoundary fallback={null}>` 包裹。当 Navigation 组件崩溃（如 Context 问题、渲染异常），整个底部导航栏完全消失（渲染 null），用户无法切换标签页。应提供一个最少功能的后备导航组件，至少显示 5 个标签切换按钮。",
+      "steps": [
+        "在 App.tsx 中创建 MinimalNav 内联组件或提取到单独文件",
+        "MinimalNav 只渲染 5 个标签按钮（纯文字 label），无动画/图标",
+        "ErrorBoundary 的 fallback 使用 MinimalNav 替代 null",
+        "运行 npm run build && npm run test 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 64,
+      "title": "libraryDB request.onerror 拒绝时可能传递 null 值",
+      "description": "libraryDB.ts 中 `request.onerror = () => { reject(request.error); }` 但 IDBRequest.error 在某些浏览器错误场景下可能为 null（非标准的 IndexedDB 实现）。当 reject(null) 被 AppContext 的 catch 接收时，console.error 记录 null 不利于调试。应在拒绝前包装 request.error 或提供默认 Error 对象。",
+      "steps": [
+        "修改 libraryDB.ts 中 request.onerror 处理: reject(request.error || new Error('IndexedDB 操作失败'))",
+        "确保所有 openDB 使用路径（getAllItems/saveItem/deleteItem/clearAll）也做同样的 null 保护",
+        "运行 npm run build && npm run test 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 65,
+      "title": "PhotoEdit/Extraction falProvider 提取发型时 Canvas 操作可并行化",
+      "description": "falProvider.ts 的 extractHairstyle 方法中，compositeHairOnWhite() 和 invertMaskImage() 两个 Canvas 图像处理操作彼此无数据依赖，但当前串行执行（先 composite，再 invert）。可用 Promise.all 并行执行以缩短约一半的处理延迟。",
+      "steps": [
+        "在 falProvider.ts extractHairstyle 中将 compositeHairOnWhite 和 invertMaskImage 用 Promise.all 并行执行",
+        "confirm compositeHairOnWhite doesn't depend on invertMaskImage output (confirmed it doesn't)",
+        "运行 npm run build 和 npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 66,
+      "title": "删除 public/deepar/ 死文件（48MB，DeepAR SDK 已完全迁移到 MindAR）",
+      "description": "claude.md 注明 'DeepAR SDK: 已全部迁移到 MindAR + Three.js 开源方案'，但 public/deepar/ 仍保留完整的 DeepAR SDK（wasm 运行时、模型、effects、JS 文件），源码中 0 处引用。这些文件被 Vite 复制到 dist/ 但从未被使用。清理可减小构建产物约 48MB。",
+      "steps": [
+        "确认无任何文件 import/reference public/deepar/ 下的内容（已 grep 确认：源码和 index.html 均无 deepar 引用）",
+        "运行 git rm -r public/deepar/ 删除版本控制",
+        "运行 npm run build && npm run test 验证无回归",
+        "运行 npm run lint 验证无类型错误"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 67,
+      "title": "AR 截图修复 — 合并视频帧和 3D 渲染为完整截图",
+      "description": "arEngine.ts 的 takeScreenshot() 调用 this.renderer.domElement.toDataURL('image/png') 只捕获 Three.js canvas。由于 renderer.setClearAlpha(0)，canvas 背景透明，截图只有 3D 发型模型（透明背景）不包含摄像头视频画面。用户看到的 '画面' 是 CSS 堆叠（视频 z-index:0 + 3D canvas z-index:1）。需改为 Canvas2D composite：drawImage(videoFrame) → drawImage(rendererCanvas) → toDataURL。",
+      "steps": [
+        "在 MindAREngine 中获取视频元素引用（可通过 container?.querySelector('video')）",
+        "修改 takeScreenshot(): 创建离屏 canvas → drawImage(video) 绘制视频帧 → drawImage(renderer.domElement) 叠加 3D 渲染 → toDataURL('image/png')",
+        "确认资源释放（离屏 canvas 不持有引用时自动 GC）",
+        "npm run lint && npm run build && npm run test 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 68,
+      "title": "PhotoEdit/Extraction 同文件重新上传无效 — 文件 input value 未重置",
+      "description": "useImageUpload.ts 的 handleFileSelect 接收 ChangeEvent 后没有重置 input.value。当用户上传图片 A → handleClearImage → 再次选择同一图片 A 时，浏览器认为 '值未变' 不触发 onChange，导致用户无法重新上传同一文件。已在 handleFileSelect 末尾添加 e.target.value = '' 修复（2026-06-17 审查时修复）。",
+      "steps": [
+        "确认 useImageUpload.ts 中 handleFileSelect 末尾已有 (e.target as HTMLInputElement).value = ''（已修复）",
+        "验证 PhotoEdit 和 Extraction 中通过 handleImageUpload 调用 handleFileSelect 后正常",
+        "运行 npm run build && npm run test 验证无回归"
       ],
       "dependsOn": [],
       "passes": true

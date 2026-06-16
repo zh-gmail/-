@@ -18,6 +18,7 @@ export function useImageUpload() {
     fileRef.current = file;
     objectUrlRef.current = URL.createObjectURL(file);
     setSelectedImage(objectUrlRef.current);
+    (e.target as HTMLInputElement).value = '';
   }, []);
 
   const clearImage = useCallback(() => {

@@ -10,6 +10,8 @@ interface AppContextType {
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   library: HairstyleItem[];
   libraryLoading: boolean;
+  libraryError: string | null;
+  clearLibraryError: () => void;
   addToLibrary: (item: HairstyleItem) => void;
   deleteFromLibrary: (id: string) => void;
   clearLibrary: () => Promise<void>;
@@ -51,6 +53,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [library, setLibrary] = useState<HairstyleItem[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(true);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [currentHairstyleIndex, setCurrentHairstyleIndex] = useState(0);
 
   useEffect(() => {
@@ -83,13 +86,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSettings((prev) => ({ ...prev, ...newSettings }));
   }, []);
 
+  const clearLibraryError = useCallback(() => setLibraryError(null), []);
+
   const addToLibrary = useCallback((item: HairstyleItem) => {
-    saveItem(item).catch((err) => console.error('Failed to save to library:', err));
+    saveItem(item).catch((err) => {
+      console.error('Failed to save to library:', err);
+      setLibraryError('保存素材失败，请检查存储空间后重试');
+    });
     setLibrary((prev) => [item, ...prev]);
   }, []);
 
   const deleteFromLibrary = useCallback((id: string) => {
-    deleteItem(id).catch((err) => console.error('Failed to delete from library:', err));
+    deleteItem(id).catch((err) => {
+      console.error('Failed to delete from library:', err);
+      setLibraryError('删除素材失败，请重试');
+    });
     setLibrary((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
@@ -120,14 +131,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateSettings,
     library,
     libraryLoading,
+    libraryError,
+    clearLibraryError,
     addToLibrary,
     deleteFromLibrary,
     clearLibrary,
     currentHairstyleIndex,
     setCurrentHairstyleIndex,
     getCurrentHairstyle,
-  }), [activeTab, settings, library, libraryLoading, addToLibrary, currentHairstyleIndex,
-      setCurrentHairstyleIndex, deleteFromLibrary, clearLibrary, getCurrentHairstyle, updateSettings]);
+  }), [activeTab, settings, library, libraryLoading, libraryError, clearLibraryError,
+      addToLibrary, currentHairstyleIndex, setCurrentHairstyleIndex, deleteFromLibrary,
+      clearLibrary, getCurrentHairstyle, updateSettings]);
 
   return (
     <AppContext.Provider value={contextValue}>

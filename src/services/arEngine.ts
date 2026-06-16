@@ -34,6 +34,7 @@ class MindAREngine implements AREngineInstance {
   private renderer: WebGLRenderer | null = null;
   private scene: Scene | null = null;
   private camera: PerspectiveCamera | null = null;
+  private containerEl: HTMLElement | null = null;
   private modelCleanupFns: Array<() => void> = [];
   private rafHandle: number | null = null;
   private renderLoop = (): void => {};
@@ -41,6 +42,7 @@ class MindAREngine implements AREngineInstance {
 
   async init(config: AREngineConfig): Promise<void> {
     const containerEl = config.previewElement;
+    this.containerEl = containerEl;
 
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('当前浏览器不支持摄像头访问，请使用现代浏览器并允许摄像头权限');
@@ -168,8 +170,28 @@ class MindAREngine implements AREngineInstance {
   }
 
   async takeScreenshot(): Promise<string> {
-    if (!this.renderer) return '';
-    return this.renderer.domElement.toDataURL('image/png');
+    const r = this.renderer;
+    if (!r || !r.domElement) return '';
+
+    // Composite: draw video frame first, then 3D rendering on top
+    const w = r.domElement.width || 640;
+    const h = r.domElement.height || 480;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return r.domElement.toDataURL('image/png');
+
+    // Draw current video frame as background
+    const video = this.containerEl?.querySelector('video');
+    if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      ctx.drawImage(video, 0, 0, w, h);
+    }
+
+    // Overlay 3D render (transparent background from setClearAlpha(0))
+    ctx.drawImage(r.domElement, 0, 0);
+
+    return canvas.toDataURL('image/png');
   }
 
   destroy(): void {

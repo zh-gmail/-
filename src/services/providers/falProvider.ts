@@ -148,10 +148,12 @@ export const falProvider: ImageGenProviderImpl = {
     const maskUrl = await callHairSegmentation(apiKey, prefixed, signal);
     const maskBase64 = await urlToBase64(maskUrl);
 
-    const compositeBase64 = await compositeHairOnWhite(prefixed, maskBase64);
+    const [compositeBase64, fillMask] = await Promise.all([
+      compositeHairOnWhite(prefixed, maskBase64),
+      invertMaskImage(maskBase64),
+    ]);
 
     try {
-      const fillMask = await invertMaskImage(maskBase64);
       return await callFluxFill(
         apiKey,
         compositeBase64,

@@ -12,8 +12,7 @@ function LiveCamera() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [screenshotting, setScreenshotting] = useState(false);
-  const currentColorRef = useRef('#8B4513');
-  const assetIndexRef = useRef(assetIndex);
+  const currentColorRef = useRef('#1a1a1a');
   const currentHair = getCurrentHairstyle();
 
   const { isActive: arActive, faceDetected, arError, initEngine, switchHairstyle, setHairColor, takeScreenshot } = useAREngine({
@@ -41,19 +40,15 @@ function LiveCamera() {
     window.location.reload();
   };
 
-  // Effect only fires when arActive becomes true (engine init completes).
-  // Uses ref to avoid stale closure on assetIndex without re-triggering on every index change.
+  // WHY: only runs on engine init; index changes handled by selectHairstyle/cycleAsset directly
   useEffect(() => {
-    const idx = assetIndexRef.current;
-    if (arActive && HAIRSTYLE_ASSETS[idx]) {
-      switchHairstyle(HAIRSTYLE_ASSETS[idx]).then(() => {
+    if (arActive && HAIRSTYLE_ASSETS[assetIndex]) {
+      switchHairstyle(HAIRSTYLE_ASSETS[assetIndex]).then(() => {
         setHairColor(currentColorRef.current);
       }).catch((err) => {
         console.error('Failed to switch hairstyle:', err);
       });
     }
-    // arActive is the only meaningful trigger — assetIndex changes are handled
-    // by selectHairstyle/cycleAsset which call switchHairstyle directly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arActive, switchHairstyle, setHairColor]);
 
@@ -67,9 +62,6 @@ function LiveCamera() {
       console.error('Failed to switch hairstyle:', err);
     });
   }, [assetIndex, library, switchHairstyle, setHairColor]);
-
-  // Keep ref in sync so init-effect always reads the latest index
-  useEffect(() => { assetIndexRef.current = assetIndex; }, [assetIndex]);
 
   const handleColorSelect = useCallback((hex: string) => {
     currentColorRef.current = hex;

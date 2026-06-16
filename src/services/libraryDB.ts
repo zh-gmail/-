@@ -29,7 +29,7 @@ function openDB(): Promise<IDBDatabase> {
     };
     request.onerror = () => {
       dbPromise = null;
-      reject(request.error);
+      reject(request.error || new Error('数据库打开失败'));
     };
   });
   return dbPromise;
@@ -42,7 +42,7 @@ export async function getAllItems(): Promise<HairstyleItem[]> {
     const store = tx.objectStore(STORE_NAME);
     const request = store.getAll();
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(request.error || new Error('读取失败'));
   });
 }
 
@@ -53,7 +53,7 @@ export async function saveItem(item: HairstyleItem): Promise<void> {
     const store = tx.objectStore(STORE_NAME);
     store.put(item);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error || new Error('保存失败'));
   });
 }
 
@@ -64,7 +64,7 @@ export async function clearAll(): Promise<void> {
     const store = tx.objectStore(STORE_NAME);
     store.clear();
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error || new Error('清空失败'));
   });
 }
 
@@ -75,6 +75,6 @@ export async function deleteItem(id: string): Promise<void> {
     const store = tx.objectStore(STORE_NAME);
     store.delete(id);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error || new Error('删除失败'));
   });
 }

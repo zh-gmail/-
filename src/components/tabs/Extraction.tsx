@@ -53,8 +53,14 @@ function Extraction() {
   ) : null;
 
   const handleImageUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+    if (rawFile.size > 10 * 1024 * 1024) {
+      setError('图片大小超过限制，请选择 10MB 以内的图片');
+      e.target.value = '';
+      return;
+    }
     handleFileSelect(e);
-    if (!e.target.files?.[0]) return;
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     requestIdRef.current++;
@@ -139,10 +145,7 @@ function Extraction() {
         {error && (
           <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200">
             <AlertCircle className="shrink-0 mt-0.5" size={20} />
-            <div className="text-sm">
-              <p className="font-medium">API 调用失败</p>
-              <p className="opacity-80 mt-1">{error}</p>
-            </div>
+            <p className="text-sm opacity-80">{error}</p>
           </div>
         )}
 
