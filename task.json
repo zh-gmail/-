@@ -1,0 +1,85 @@
+{
+  "project": "AI Hair Stylist Pro",
+  "description": "AI 虚拟换发型 Web 应用 — AR 面部追踪 + 3D 发型叠加 + AI 照片换发",
+  "createdAt": "2026-06-16",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "修复 index.html 标题",
+      "description": "将页面标题从 'My Google AI Studio App' 改为 'AI Hair Stylist Pro'",
+      "steps": [
+        "读取 index.html 中的 <title> 标签",
+        "将 'My Google AI Studio App' 替换为 'AI Hair Stylist Pro'",
+        "运行 npm run build 验证无报错"
+      ],
+      "dependsOn": [],
+      "passes": false
+    },
+    {
+      "id": 2,
+      "title": "发色调整 UI 颜色选择器",
+      "description": "在 LiveCamera 界面添加发色选择器，调用 arEngine.setHairColor() 实时调整 3D 发型颜色",
+      "steps": [
+        "在 LiveCamera.tsx 中添加颜色选择器 UI 组件",
+        "连接 useAREngine.setHairColor() 方法",
+        "选择常用发色预设（黑色、棕色、金色、红色等）",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 3,
+      "title": "AR 截图按钮",
+      "description": "在 LiveCamera 界面添加截图按钮，调用 arEngine.takeScreenshot()",
+      "steps": [
+        "在 LiveCamera.tsx 中添加截图按钮 UI",
+        "连接 useAREngine.takeScreenshot() 方法",
+        "截图完成后自动下载或预览",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [2],
+      "passes": true
+    },
+    {
+      "id": 4,
+      "title": "默认 SDK Key 移入 .env",
+      "description": "将 AppContext.tsx 中硬编码的默认 SDK Key 移至 .env 文件",
+      "steps": [
+        "检查 AppContext.tsx 中硬编码的 API Key（约第 22 行）",
+        "将 Key 移至 .env 文件",
+        "更新 .env.example 记录新变量名",
+        "更新 AppContext.tsx 使用环境变量读取",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": false
+    },
+    {
+      "id": 5,
+      "title": "HandTracking 键盘降级清理",
+      "description": "修复 useHandTracking.ts 中 window.__handKeyboardCleanup 全局变量，改为 React 闭包变量",
+      "steps": [
+        "分析 useHandTracking.ts 中全局变量的用途",
+        "将全局变量替换为 useRef 或闭包变量",
+        "确保功能不变",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": false
+    },
+    {
+      "id": 6,
+      "title": "git init 初始化仓库",
+      "description": "初始化 Git 仓库，创建 .gitignore（已有），做初始提交",
+      "steps": [
+        "运行 git init",
+        "添加所有文件 git add -A",
+        "做初始提交 git commit -m '初始提交: AI Hair Stylist Pro'",
+        "确认 git status 干净"
+      ],
+      "dependsOn": [1, 2, 3, 4, 5],
+      "passes": false
+    }
+  ]
+}
