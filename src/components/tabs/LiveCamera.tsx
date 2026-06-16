@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, Settings2, Image as ImageIcon, Hand, Palette, Camera } from 'lucide-react';
+import { useRef, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, RefreshCw, Settings2, Image as ImageIcon, Palette, Camera } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
-import { useHandTracking } from '../../hooks/useHandTracking';
 import { useAREngine } from '../../hooks/useAREngine';
 import { HAIRSTYLE_ASSETS } from '../../data/hairstyleAssets';
 
@@ -17,7 +16,7 @@ const HAIR_COLORS = [
 ];
 
 export default function LiveCamera() {
-  const { settings, library, currentHairstyleIndex, setCurrentHairstyleIndex, getCurrentHairstyle, setActiveTab, isHandTracking, setHandTracking } = useAppContext();
+  const { library, currentHairstyleIndex, setCurrentHairstyleIndex, getCurrentHairstyle, setActiveTab } = useAppContext();
   const containerRef = useRef<HTMLDivElement>(null);
   const [assetIndex, setAssetIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -25,24 +24,13 @@ export default function LiveCamera() {
   const [screenshotting, setScreenshotting] = useState(false);
   const currentHair = getCurrentHairstyle();
 
-  const handleHandGesture = (gesture: 'up' | 'down') => {
-    if (gesture === 'down') {
-      setAssetIndex(i => (i + 1) % HAIRSTYLE_ASSETS.length);
-    } else if (gesture === 'up') {
-      setAssetIndex(i => (i - 1 + HAIRSTYLE_ASSETS.length) % HAIRSTYLE_ASSETS.length);
-    }
-  };
-
   const selectHairstyle = (index: number) => {
     setCurrentHairstyleIndex(index);
     setAssetIndex(index % HAIRSTYLE_ASSETS.length);
   };
 
-  const { isInitializing: handInit, toggleHandTracking } = useHandTracking(handleHandGesture, isHandTracking, setHandTracking);
-
   // MindAR integration
   const { isActive: arActive, faceDetected, arError, initEngine, switchHairstyle, setHairColor, takeScreenshot } = useAREngine({
-    licenseKey: '',
     previewRef: containerRef,
   });
 
@@ -67,6 +55,7 @@ export default function LiveCamera() {
   const cycleAsset = () => {
     const nextIdx = (assetIndex + 1) % HAIRSTYLE_ASSETS.length;
     setAssetIndex(nextIdx);
+    if (library.length > 0) setCurrentHairstyleIndex((prev) => (prev + 1) % library.length);
   };
 
   const handleColorSelect = (hex: string) => {
@@ -115,7 +104,7 @@ export default function LiveCamera() {
                     : 'ring-1 ring-white/10 hover:ring-white/30'
                 }`}>
                 <div className="relative">
-                  <img src={item.previewUrl} alt={item.name}
+                  <img src={item.previewUrl} alt={item.name} loading="lazy"
                     className="w-full aspect-square object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <span className="absolute bottom-1 left-1 right-1 text-[10px] text-white font-medium leading-tight truncate">
@@ -194,30 +183,16 @@ export default function LiveCamera() {
           </div>
         )}
 
-        {/* Bottom Info — current hairstyle name + gesture status */}
-        <div className="absolute bottom-4 left-4 flex flex-col items-start gap-2 z-10">
-          <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-black/40 backdrop-blur-xl rounded-full border border-white/15">
-            <div className="w-3 h-3 rounded-full border border-white/40" style={{ backgroundColor: currentHair.colorHex }} />
-            <span className="text-white text-xs font-medium drop-shadow-md">
-              {currentHair.name} - {currentHair.colorName}
-            </span>
-          </div>
-          <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full backdrop-blur-sm border border-white/10 ${
-            handInit ? 'text-amber-300 bg-black/30' : isHandTracking ? 'text-green-300 bg-black/30' : 'text-white/60 bg-black/30'
-          }`}>
-            {handInit ? '✋ 手势初始化中...' : isHandTracking ? '✋ 手势已开启' : '手势未开启'}
+        {/* Bottom Info — current hairstyle name */}
+        <div className="absolute bottom-4 left-4 flex items-center gap-2.5 z-10 px-3.5 py-1.5 bg-black/40 backdrop-blur-xl rounded-full border border-white/15">
+          <div className="w-3 h-3 rounded-full border border-white/40" style={{ backgroundColor: currentHair.colorHex }} />
+          <span className="text-white text-xs font-medium drop-shadow-md">
+            {currentHair.name} - {currentHair.colorName}
           </span>
         </div>
 
         {/* Right Side Controls */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-10">
-          <button onClick={toggleHandTracking}
-            className={`p-3.5 rounded-full backdrop-blur-md transition-all shadow-xl shadow-black/20 ${
-              isHandTracking ? 'bg-blue-500/80 border border-blue-400 text-white' : 'bg-black/40 border border-white/20 text-white hover:bg-black/60'
-            }`}>
-            <Hand size={22} />
-          </button>
-
           <button onClick={cycleAsset} className="p-4 bg-white/90 hover:scale-105 active:scale-95 text-black rounded-full transition-all shadow-2xl shadow-black/30">
             <RefreshCw size={26} strokeWidth={1.5} />
           </button>

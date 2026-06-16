@@ -20,10 +20,6 @@ const TAB_FALLBACK = (
   </div>
 );
 
-function TabGuard({ children }: { children: React.ReactNode }) {
-  return <ErrorBoundary>{children}</ErrorBoundary>;
-}
-
 function AppContent() {
   const { activeTab } = useAppContext();
 
@@ -31,11 +27,11 @@ function AppContent() {
     <div className="h-screen w-full overflow-hidden bg-black text-neutral-900 font-sans selection:bg-neutral-200">
       <main className="h-full w-full relative">
         <Suspense fallback={TAB_FALLBACK}>
-          {activeTab === 'live' && <TabGuard><LiveCamera /></TabGuard>}
-          {activeTab === 'photo' && <TabGuard><PhotoEdit /></TabGuard>}
-          {activeTab === 'extract' && <TabGuard><Extraction /></TabGuard>}
-          {activeTab === 'library' && <TabGuard><Library /></TabGuard>}
-          {activeTab === 'settings' && <TabGuard><Settings /></TabGuard>}
+          {activeTab === 'live' && <ErrorBoundary><LiveCamera /></ErrorBoundary>}
+          {activeTab === 'photo' && <ErrorBoundary><PhotoEdit /></ErrorBoundary>}
+          {activeTab === 'extract' && <ErrorBoundary><Extraction /></ErrorBoundary>}
+          {activeTab === 'library' && <ErrorBoundary><Library /></ErrorBoundary>}
+          {activeTab === 'settings' && <ErrorBoundary><Settings /></ErrorBoundary>}
         </Suspense>
       </main>
       <Navigation />

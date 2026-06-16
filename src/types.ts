@@ -1,10 +1,11 @@
 export type TabState = 'live' | 'photo' | 'extract' | 'library' | 'settings';
 
-export type ImageProviderType = 'baidu' | 'ali';
+export type ImageProviderType = 'baidu' | 'ali' | 'fal';
 
 export interface AppSettings {
   imageApiKey: string;
   imageApiSecret: string;
+  imageFalKey: string;
   imageProvider: ImageProviderType;
 }
 

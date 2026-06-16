@@ -1,14 +1,12 @@
 import { useRef, useEffect, useCallback, useState, RefObject } from 'react';
-import { createAREngine, AREngineInstance, HairstyleAsset, GestureCallback, FaceTrackingCallback } from '../services/arEngine';
+import { createAREngine, AREngineInstance, HairstyleAsset, FaceTrackingCallback } from '../services/arEngine';
 
 interface UseAREngineOptions {
-  licenseKey?: string;
   previewRef: RefObject<HTMLElement | null>;
-  onGesture?: GestureCallback;
   onFaceTracked?: FaceTrackingCallback;
 }
 
-export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }: UseAREngineOptions) {
+export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
   const engineRef = useRef<AREngineInstance | null>(null);
   const initCalledRef = useRef(false);
   const [isActive, setIsActive] = useState(false);
@@ -17,10 +15,8 @@ export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }
   const [arError, setArError] = useState<string | null>(null);
 
   useEffect(() => {
-    const engine = createAREngine(licenseKey);
+    const engine = createAREngine();
     engineRef.current = engine;
-
-    if (onGesture) engine.onGesture(onGesture);
 
     engine.onFaceTracked((detected) => {
       setFaceDetected(detected);
@@ -35,7 +31,7 @@ export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }
       setFaceDetected(false);
       setArError(null);
     };
-  }, [licenseKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initEngine = useCallback(async () => {
     if (initCalledRef.current) return;
@@ -55,7 +51,7 @@ export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }
 
     try {
       const result = await Promise.race([
-        engine.init({ licenseKey: licenseKey || '', previewElement: preview }).then(() => 'ok' as const),
+        engine.init({ licenseKey: '', previewElement: preview }).then(() => 'ok' as const),
         new Promise<never>((_, reject) => {
           timeoutId = setTimeout(
             () => reject(new Error('引擎初始化超时，请检查摄像头权限和网络连接')),
@@ -66,9 +62,9 @@ export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }
 
       if (timeoutId) clearTimeout(timeoutId);
       if (result === 'ok') setIsActive(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (timeoutId) clearTimeout(timeoutId);
-      const errMsg = err?.message || (err ? String(err) : '') || '';
+      const errMsg = err instanceof Error ? err.message : err ? String(err) : '';
       console.error('AR engine init failed:', err);
 
       // Show actionable error message
@@ -84,7 +80,7 @@ export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }
       setArError(userMsg);
       initCalledRef.current = false;
     }
-  }, [licenseKey, previewRef]);
+  }, [previewRef]);
 
   const switchHairstyle = useCallback(async (asset: HairstyleAsset) => {
     const engine = engineRef.current;
@@ -112,6 +108,5 @@ export function useAREngine({ licenseKey, previewRef, onGesture, onFaceTracked }
     switchHairstyle,
     setHairColor,
     takeScreenshot,
-    engine: engineRef,
   };
 }

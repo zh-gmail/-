@@ -2,6 +2,8 @@
   "project": "AI Hair Stylist Pro",
   "description": "AI 虚拟换发型 Web 应用 — AR 面部追踪 + 3D 发型叠加 + AI 照片换发",
   "createdAt": "2026-06-16",
+  "verifiedAt": "2026-06-16",
+  "verifiedBy": "tsc --noEmit + vite build 均通过 (+ strict: true, GLB v2 models)",
   "tasks": [
     {
       "id": 1,
@@ -13,7 +15,7 @@
         "运行 npm run build 验证无报错"
       ],
       "dependsOn": [],
-      "passes": false
+      "passes": true
     },
     {
       "id": 2,
@@ -53,7 +55,7 @@
         "运行 npm run build 验证"
       ],
       "dependsOn": [],
-      "passes": false
+      "passes": true
     },
     {
       "id": 5,
@@ -66,7 +68,7 @@
         "运行 npm run build 验证"
       ],
       "dependsOn": [],
-      "passes": false
+      "passes": true
     },
     {
       "id": 6,
@@ -79,6 +81,145 @@
         "确认 git status 干净"
       ],
       "dependsOn": [1, 2, 3, 4, 5],
+      "passes": true
+    },
+    {
+      "id": 7,
+      "title": "获取 3D 发型 GLB 文件 + 调整模型参数",
+      "description": "替换测试用 box 几何体为真实 3D 发型模型。当前使用 Three.js LatheGeometry 程序化生成的过渡模型（short/long/bob），需要用户提供真实 GLB 发型文件替换。",
+      "steps": [
+        "从用户处获取真实 3D 发型 GLB 文件（Sketchfab / CGTrader / Blender 制作）",
+        "替换 public/assets/hairstyles/ 下的过渡模型",
+        "调整 hairstyleAssets.ts 中对应模型的 scale/position 参数",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": false,
+      "blocked": true,
+      "blockedReason": "需要用户提供真实 3D 发型 GLB 文件，当前程序化模型只是过渡方案"
+    },
+    {
+      "id": 8,
+      "title": "素材库 IndexedDB 替代 localStorage",
+      "description": "将 AppContext 中的素材库 storage 从 localStorage 迁移到 IndexedDB，避免 base64 大图超出 localStorage 5MB 限制",
+      "steps": [
+        "创建 src/services/libraryDB.ts — IndexedDB 封装层（openDB, getAllItems, saveItem, deleteItem, clearAll）",
+        "onupgradeneeded 中自动写入 MOCK_LIBRARY 种子数据",
+        "修改 AppContext.tsx — library 初始化从 IndexedDB 异步加载，addToLibrary 同步写入 IndexedDB",
+        "移除 localStorage 读写和 MOCK_LIBRARY 导入依赖",
+        "运行 npm run lint 和 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 10,
+      "title": "启用 TypeScript strict 模式",
+      "description": "在 tsconfig.json 中启用 strict: true，开启严格空值检查、noImplicitAny 等，提升类型安全性",
+      "steps": [
+        "在 tsconfig.json compilerOptions 中添加 \"strict\": true",
+        "运行 npm run lint (tsc --noEmit) 查看错误",
+        "逐一修复所有 strict 模式下的类型错误",
+        "运行 npm run build 验证构建通过"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 11,
+      "title": "添加 noUnusedLocals / noUnusedParameters 编译检查",
+      "description": "在 tsconfig.json 中启用 noUnusedLocals 和 noUnusedParameters，防止未使用变量泄漏到生产代码",
+      "steps": [
+        "在 tsconfig.json compilerOptions 中添加 \"noUnusedLocals\": true, \"noUnusedParameters\": true",
+        "运行 npm run lint (tsc --noEmit) 查看错误",
+        "清理所有未使用变量和参数",
+        "运行 npm run build 验证构建通过"
+      ],
+      "dependsOn": [10],
+      "passes": true
+    },
+    {
+      "id": 12,
+      "title": "npm install 同步 lockfile",
+      "description": "在移除死依赖后，运行 npm install 更新 package-lock.json，清理 node_modules 中已移除的包",
+      "steps": [
+        "运行 npm install",
+        "确认 package-lock.json 已更新",
+        "运行 npm run build 验证构建通过"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 13,
+      "title": "接入 FAL AI hairstyle-transfer + 增强身份保持 prompt",
+      "description": "增强 baidu/ali provider 的身份保持 prompt，新增 FAL AI hairstyle-transfer provider 作为补充方案",
+      "steps": [
+        "增强 baiduProvider.ts 中 VLM 分析和文生图 prompt 加入严格身份保持约束",
+        "增强 aliProvider.ts 同上",
+        "新建 falProvider.ts — FAL AI hairstyle-transfer 调用",
+        "更新 imageGenClient.ts 新增 fal provider 分支",
+        "更新 types.ts 增加 'fal' 和 imageFalKey",
+        "更新 AppContext.tsx 添加 imageFalKey",
+        "更新 .env / .env.example 添加 VITE_FAL_KEY",
+        "更新 Settings.tsx 添加 FAL 配置",
+        "更新 PhotoEdit.tsx 支持 FAL key",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [4],
+      "passes": true
+    },
+    {
+      "id": 14,
+      "title": "Library 素材删除功能",
+      "description": "素材库卡片缺少删除按钮，libraryDB.deleteItem 已实现但未接入 UI，用户无法删除已保存的素材",
+      "steps": [
+        "在 Library.tsx 中每个素材卡片添加删除按钮（右上角 X 或垃圾桶图标）",
+        "点击删除时添加确认弹窗（确认/取消）避免误删",
+        "调用 libraryDB.deleteItem(item.id) 删除 IndexedDB 数据",
+        "同时更新本地 state，从 library 列表中移除该项",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 15,
+      "title": "Library IndexedDB 加载状态",
+      "description": "AppContext 初始化时从 IndexedDB 异步加载素材数据，但 Library 页面没有 loading 指示器，在慢速设备上会出现短暂空白",
+      "steps": [
+        "在 AppContext.tsx 中添加 libraryLoading 状态（boolean）",
+        "getAllItems() Promise 完成前 libraryLoading=true，完成后设为 false",
+        "在 Library.tsx 中读取 libraryLoading，为 true 时显示加载骨架屏或 spinner",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": false
+    },
+    {
+      "id": 16,
+      "title": "PhotoEdit 保存素材时支持选择发型类型",
+      "description": "handleSaveToLibrary 中 type 硬编码为 'bob'，所有 AI 生成结果保存到素材库时都标记为波波头，与实际不符",
+      "steps": [
+        "在 PhotoEdit.tsx 的生成结果区域添加发型类型下拉选择器（short/buzz/wool/long/bob）",
+        "默认根据结果索引轮转选择或让用户手动选择",
+        "保存时使用用户选中的 type 而非固定 'bob'",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 17,
+      "title": "Extraction 保存时支持选择 colorHex",
+      "description": "Extraction 页面已有 colorName 文本输入框，但 colorHex 硬编码为 '#323232'，保存的发色圆点始终显示为同一种颜色",
+      "steps": [
+        "在 Extraction.tsx 的发色色系输入下方添加 colorHex 颜色选择器",
+        "选择器可用 8-10 个常用发色预设供点击选择",
+        "保存到素材库时使用用户选择的 colorHex",
+        "运行 npm run build 验证"
+      ],
+      "dependsOn": [],
       "passes": false
     }
   ]

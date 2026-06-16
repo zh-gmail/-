@@ -1,24 +1,36 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { Upload, Scissors, Download, Palette, AlertCircle } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 import { HairstyleItem } from '../../types';
 import { imageGenClient } from '../../services/imageGenClient';
 import { resizeImage } from '../../utils/imageUtils';
 
+const DEMO_DELAY_MS = 1500;
+
 export default function Extraction() {
   const { settings, addToLibrary, setActiveTab } = useAppContext();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedResult, setExtractedResult] = useState<string | null>(null);
-  const [colorName, setColorName] = useState('Custom Color');
+  const [colorName, setColorName] = useState('自定义色');
+  const [colorHex, setColorHex] = useState('#323232');
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<File | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
+
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       fileRef.current = file;
-      setSelectedImage(URL.createObjectURL(file));
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = URL.createObjectURL(file);
+      setSelectedImage(objectUrlRef.current);
       setExtractedResult(null);
       setError(null);
     }
@@ -32,7 +44,7 @@ export default function Extraction() {
       setTimeout(() => {
         setExtractedResult('https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&w=400&q=80');
         setIsExtracting(false);
-      }, 1500);
+      }, DEMO_DELAY_MS);
       return;
     }
 
@@ -43,7 +55,6 @@ export default function Extraction() {
       setExtractedResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : '提取失败，请检查 API 配置');
-      setExtractedResult('https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&w=400&q=80');
     } finally {
       setIsExtracting(false);
     }
@@ -56,7 +67,7 @@ export default function Extraction() {
       name: '提取发型',
       type: 'short',
       colorName: colorName,
-      colorHex: 'rgba(50,50,50,0.8)',
+      colorHex: colorHex,
       previewUrl: extractedResult
     };
     addToLibrary(newItem);
@@ -97,7 +108,7 @@ export default function Extraction() {
                  <div className="space-y-4">
                    <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-widest">原图</h3>
                    <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-100 relative group">
-                     <img src={selectedImage} alt="Source" className="w-full h-full object-cover" />
+                     <img src={selectedImage} alt="Source" loading="lazy" className="w-full h-full object-cover" />
                      <button 
                         onClick={() => setSelectedImage(null)}
                         className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm font-medium"
@@ -111,7 +122,6 @@ export default function Extraction() {
                    <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-widest">提取结果演示</h3>
                    {extractedResult ? (
                      <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-white border border-neutral-200 p-4 relative flex items-center justify-center">
-                        {/* Mocking an extracted, transparent asset */}
                         <div className="absolute inset-0 bg-[url('https://transparenttextures.com/patterns/cubes.png')] opacity-10 rounded-2xl"></div>
                         <img src={extractedResult} alt="Extracted" className="w-full h-full object-contain relative z-10 drop-shadow-2xl" style={{ filter: 'brightness(1.1) contrast(1.1)' }} />
                      </div>
@@ -130,7 +140,7 @@ export default function Extraction() {
                            ) : (
                              <>
                                <Scissors size={18} />
-                               提取独立发髻
+                               提取发型
                              </>
                            )}
                          </button>
@@ -154,8 +164,39 @@ export default function Extraction() {
                        placeholder="如：深红色，银色..."
                      />
                    </div>
-                   
-                   <button 
+
+                   {/* 预设发色选择 */}
+                   <div>
+                     <label className="block text-sm font-medium text-neutral-900 mb-2 flex items-center gap-2">
+                       <Palette size={16} className="text-neutral-500" />
+                       选择发色
+                     </label>
+                     <div className="flex flex-wrap gap-3">
+                       {[
+                         { hex: '#1a1a1a', name: '黑色' },
+                         { hex: '#5c3a1e', name: '深棕' },
+                         { hex: '#8b5e3c', name: '浅棕' },
+                         { hex: '#d4a853', name: '金色' },
+                         { hex: '#b84a4a', name: '红色' },
+                         { hex: '#8c8c8c', name: '灰色' },
+                         { hex: '#c4a882', name: '亚麻' },
+                         { hex: '#e8d8c8', name: '米白' },
+                         { hex: '#4a6fa5', name: '蓝色' },
+                         { hex: '#6b3a5a', name: '紫色' },
+                       ].map((c) => (
+                         <button
+                           key={c.hex}
+                           type="button"
+                           onClick={() => setColorHex(c.hex)}
+                           title={c.name}
+                           className={`w-8 h-8 rounded-full border-2 transition-all ${colorHex === c.hex ? 'border-black scale-110 shadow-md' : 'border-neutral-300 hover:scale-110'}`}
+                           style={{ backgroundColor: c.hex }}
+                         />
+                       ))}
+                     </div>
+                   </div>
+
+                   <button
                      onClick={saveToLibrary}
                      className="w-full py-4 bg-black text-white rounded-xl font-medium tracking-wide hover:bg-neutral-800 transition-all flex items-center justify-center gap-2 shadow-lg"
                    >

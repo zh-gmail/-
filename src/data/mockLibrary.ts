@@ -34,10 +34,3 @@ export const MOCK_LIBRARY: HairstyleItem[] = [
     previewUrl: 'https://images.unsplash.com/photo-1580618672591-eb18e285d852?auto=format&fit=crop&w=300&q=80',
   }
 ];
-
-// Reusable SVG placeholder for AR hair overlay
-export const getHairOverlaySvg = (colorHex: string, type: string) => {
-  const isShort = type === 'buzz' || type === 'short';
-  // A simplistic SVG representing a hair overlay
-  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="${encodeURIComponent(colorHex)}" d="${isShort ? 'M50 80 Q100 20 150 80 Q160 120 150 150 Q100 130 50 150 Q40 120 50 80' : 'M30 100 Q100 0 170 100 Q180 180 150 200 Q100 120 50 200 Q20 180 30 100'}"/></svg>`;
-};

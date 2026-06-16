@@ -1,8 +1,11 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { Upload, Sparkles, AlertCircle, Bookmark } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 import { imageGenClient } from '../../services/imageGenClient';
 import { resizeImage } from '../../utils/imageUtils';
+import type { HairType } from '../../types';
+
+const DEMO_DELAY_MS = 2000;
 
 const DEMO_RESULTS = [
   'https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&w=400&q=80',
@@ -19,13 +22,40 @@ export default function PhotoEdit() {
   const [results, setResults] = useState<string[]>([]);
   const [savedIndices, setSavedIndices] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<HairType>('bob');
   const fileRef = useRef<File | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  const HAIR_TYPE_OPTIONS: { value: HairType; label: string }[] = [
+    { value: 'short', label: '短发' },
+    { value: 'buzz', label: '寸头' },
+    { value: 'wool', label: '羊毛卷' },
+    { value: 'long', label: '长发' },
+    { value: 'bob', label: '波波头' },
+  ];
+
+  const noKey = settings.imageProvider === 'fal' ? !settings.imageFalKey : !settings.imageApiKey;
+  const noKeyWarning = noKey ? (
+    <div className="bg-amber-50 text-amber-800 p-4 rounded-xl flex items-start gap-3 border border-amber-200">
+      <AlertCircle className="shrink-0 mt-0.5" size={20} />
+      <div className="text-sm">
+        <p className="font-medium">使用基础版示意生成</p>
+        <p className="opacity-80 mt-1">由于未能在设置中连接图像生成API，当前展示占位示意合成图。</p>
+      </div>
+    </div>
+  ) : null;
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
 
   const handleSaveToLibrary = (url: string, idx: number) => {
     addToLibrary({
       id: `photo-${Date.now()}-${idx}`,
       name: `AI 生成发型 ${idx + 1}`,
-      type: 'bob',
+      type: selectedType,
       colorName: '自然黑',
       colorHex: '#2c2c2c',
       previewUrl: url,
@@ -33,12 +63,15 @@ export default function PhotoEdit() {
     setSavedIndices(prev => new Set(prev).add(idx));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       fileRef.current = file;
-      setSelectedImage(URL.createObjectURL(file));
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = URL.createObjectURL(file);
+      setSelectedImage(objectUrlRef.current);
       setResults([]);
+      setSavedIndices(new Set());
       setError(null);
     }
   };
@@ -47,23 +80,32 @@ export default function PhotoEdit() {
     setIsGenerating(true);
     setError(null);
 
-    // Demo mode if no API key
-    if (!settings.imageApiKey) {
+    const isFal = settings.imageProvider === 'fal';
+    const apiKey = isFal ? settings.imageFalKey : settings.imageApiKey;
+    const apiSecret = isFal ? undefined : (settings.imageApiSecret || undefined);
+
+    if (!apiKey) {
       setTimeout(() => {
         setResults(DEMO_RESULTS);
         setIsGenerating(false);
-      }, 2000);
+      }, DEMO_DELAY_MS);
+      return;
+    }
+
+    const file = fileRef.current;
+    if (!file) {
+      setError('请先上传照片');
+      setIsGenerating(false);
       return;
     }
 
     try {
       await imageGenClient.setProvider(settings.imageProvider);
-      const base64 = await resizeImage(fileRef.current!);
-      const images = await imageGenClient.generateHairstyles(base64, settings.imageApiKey, settings.imageApiSecret || undefined);
+      const base64 = await resizeImage(file);
+      const images = await imageGenClient.generateHairstyles(base64, apiKey, apiSecret);
       setResults(images.length > 0 ? images : DEMO_RESULTS);
     } catch (err) {
       setError(err instanceof Error ? err.message : '生成失败，请检查 API 配置');
-      // Fallback to demo on error
       setResults(DEMO_RESULTS);
     } finally {
       setIsGenerating(false);
@@ -78,15 +120,7 @@ export default function PhotoEdit() {
           <p className="text-neutral-500">上传正脸照片，AI自动识别人脸与原生发型区域，生成5-8张适配脸型的发型和发色。</p>
         </header>
 
-        {!settings.imageApiKey && (
-          <div className="bg-amber-50 text-amber-800 p-4 rounded-xl flex items-start gap-3 border border-amber-200">
-            <AlertCircle className="shrink-0 mt-0.5" size={20} />
-            <div className="text-sm">
-              <p className="font-medium">使用基础版示意生成</p>
-              <p className="opacity-80 mt-1">由于未能在设置中连接图像生成API，当前展示占位示意合成图。</p>
-            </div>
-          </div>
-        )}
+        {noKeyWarning}
 
         {error && (
           <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200">
@@ -147,12 +181,23 @@ export default function PhotoEdit() {
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold tracking-tight text-neutral-900">生成结果</h3>
-              <span className="text-sm text-neutral-500 font-medium">共 {results.length} 种变体</span>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-neutral-500 font-medium">发型类型</label>
+                <select
+                  value={selectedType}
+                  onChange={e => setSelectedType(e.target.value as HairType)}
+                  className="text-sm border border-neutral-300 rounded-lg px-3 py-1.5 bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                >
+                  {HAIR_TYPE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {results.map((r, idx) => (
                 <div key={idx} className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                  <img src={r} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="variation" />
+                  <img src={r} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="variation" />
                   <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between">
                     <span className="text-white text-xs font-mono tracking-widest">发型风格 {idx + 1}</span>
                     <button
