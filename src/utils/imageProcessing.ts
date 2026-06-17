@@ -4,7 +4,8 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
     if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = () => {
-      reject(new Error(`Failed to load image (${src.slice(0, 80)})`));
+      const snippet = src.startsWith('data:') ? `${src.slice(0, 20)}...` : src.slice(0, 80);
+      reject(new Error(`Failed to load image (${snippet})`));
     };
     img.src = src;
   });

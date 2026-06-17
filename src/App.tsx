@@ -11,34 +11,34 @@ const Library = lazy(() => import('./components/tabs/Library'));
 const Settings = lazy(() => import('./components/tabs/Settings'));
 
 function MinimalNav() {
-	  const { activeTab, setActiveTab } = useAppContext();
-	  const tabs: { id: TabState; label: string }[] = [
-	    { id: 'live', label: '实时试戴' },
-	    { id: 'photo', label: '照片换发' },
-	    { id: 'extract', label: '素材提取' },
-	    { id: 'library', label: '素材库' },
-	    { id: 'settings', label: '设置' },
-	  ];
-	  return (
-	    <nav className="fixed bottom-0 inset-x-0 z-50 bg-black/90 border-t border-white/10">
-	      <div className="flex justify-around py-3 px-2 max-w-lg mx-auto">
-	        {tabs.map(tab => (
-	          <button
-	            key={tab.id}
-	            onClick={() => setActiveTab(tab.id)}
-	            className={`px-3 py-2 text-xs font-medium transition-colors ${
-	              activeTab === tab.id ? 'text-white' : 'text-neutral-500'
-	            }`}
-	          >
-	            {tab.label}
-	          </button>
-	        ))}
-	      </div>
-	    </nav>
-	  );
-	}
+  const { activeTab, setActiveTab } = useAppContext();
+  const tabs: { id: TabState; label: string }[] = [
+    { id: 'live', label: '实时试戴' },
+    { id: 'photo', label: '照片换发' },
+    { id: 'extract', label: '素材提取' },
+    { id: 'library', label: '素材库' },
+    { id: 'settings', label: '设置' },
+  ];
+  return (
+    <nav className="fixed bottom-0 inset-x-0 z-50 bg-black/90 border-t border-white/10">
+      <div className="flex justify-around py-3 px-2 max-w-lg mx-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-3 py-2 text-xs font-medium transition-colors ${
+              activeTab === tab.id ? 'text-white' : 'text-neutral-500'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
 
-	const TAB_FALLBACK = (
+const TAB_FALLBACK = (
   <div className="h-full flex items-center justify-center bg-black">
     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
   </div>
@@ -66,7 +66,9 @@ function AppContent() {
 export default function App() {
   return (
     <AppProvider>
-      <AppContent />
+      <ErrorBoundary>
+        <AppContent />
+      </ErrorBoundary>
     </AppProvider>
   );
 }

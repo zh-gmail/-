@@ -101,8 +101,8 @@ async function callHairSegmentation(
 // FAL rejects base64 without data URI prefix; resizeImage() omits it
 const DEFAULT_MIME = 'data:image/jpeg;base64,';
 
-function ensureDataUri(s: string, mime = DEFAULT_MIME): string {
-  return s.startsWith('data:') ? s : mime + s;
+function ensureDataUri(s: string): string {
+  return s.startsWith('data:') ? s : DEFAULT_MIME + s;
 }
 
 export const falProvider: ImageGenProviderImpl = {
@@ -148,9 +148,13 @@ export const falProvider: ImageGenProviderImpl = {
     const maskUrl = await callHairSegmentation(apiKey, prefixed, signal);
     const maskBase64 = await urlToBase64(maskUrl);
 
+    // invertMaskImage failure is non-fatal — proceed without mask
     const [compositeBase64, fillMask] = await Promise.all([
       compositeHairOnWhite(prefixed, maskBase64),
-      invertMaskImage(maskBase64),
+      invertMaskImage(maskBase64).catch((err) => {
+        console.warn('mask invert failed, proceeding without mask:', err);
+        return undefined;
+      }),
     ]);
 
     try {
@@ -162,6 +166,7 @@ export const falProvider: ImageGenProviderImpl = {
         signal,
       );
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
       console.warn('FAL flux edge cleanup failed, returning composite:', err);
       return compositeBase64;
     }

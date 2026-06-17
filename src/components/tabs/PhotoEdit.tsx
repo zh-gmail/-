@@ -3,10 +3,11 @@ import { Upload, Sparkles, AlertCircle, Bookmark } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { imageGenClient } from '../../services/imageGenClient';
-import { resizeImage } from '../../utils/imageUtils';
+import { resizeImage, getImgFallbackDataUri } from '../../utils/imageUtils';
 import { HAIR_TYPE_OPTIONS } from '../../constants/hairTypes';
 import type { HairType } from '../../types';
 import { HAIR_COLOR_PRESETS } from '../../constants/hairColors';
+import { generateId } from '../../utils/id';
 
 const DEMO_DELAY_MS = 2000;
 
@@ -19,8 +20,8 @@ const DEMO_RESULTS = [
 ];
 
 function PhotoEdit() {
-  const { settings, addToLibrary } = useAppContext();
-  const { selectedImage, fileRef, handleFileSelect, clearImage } = useImageUpload();
+  const { settings, addToLibrary, libraryError, clearLibraryError } = useAppContext();
+  const { selectedImage, fileRef, handleFileSelect, clearImage, error: uploadError } = useImageUpload();
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [savedIndices, setSavedIndices] = useState<Set<number>>(() => new Set());
@@ -28,6 +29,7 @@ function PhotoEdit() {
   const [selectedType, setSelectedType] = useState<HairType>('bob');
   const [selectedColorName, setSelectedColorName] = useState('自然黑');
   const [selectedColorHex, setSelectedColorHex] = useState('#1a1a1a');
+  const displayError = error || uploadError;
   const demoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -63,7 +65,7 @@ function PhotoEdit() {
 
   const handleSaveToLibrary = useCallback((url: string, idx: number) => {
     addToLibrary({
-      id: `photo-${crypto.randomUUID()}-${idx}`,
+      id: `photo-${generateId()}-${idx}`,
       name: `AI 生成发型 ${idx + 1}`,
       type: selectedType,
       colorName: selectedColorName,
@@ -75,13 +77,6 @@ function PhotoEdit() {
   }, [addToLibrary, selectedType, selectedColorName, selectedColorHex]);
 
   const handleImageUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const rawFile = e.target.files?.[0];
-    if (!rawFile) return;
-    if (rawFile.size > 10 * 1024 * 1024) {
-      setError('图片大小超过限制，请选择 10MB 以内的图片');
-      e.target.value = '';
-      return;
-    }
     handleFileSelect(e);
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -151,10 +146,10 @@ function PhotoEdit() {
 
         {noKeyWarning}
 
-        {error && (
-          <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200">
+        {displayError && (
+          <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200" role="alert">
             <AlertCircle className="shrink-0 mt-0.5" size={20} />
-            <p className="text-sm opacity-80">{error}</p>
+            <p className="text-sm opacity-80">{displayError}</p>
           </div>
         )}
 
@@ -171,7 +166,12 @@ function PhotoEdit() {
           ) : (
             <div className="space-y-6">
               <div className="relative h-72 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-100">
-                <img src={selectedImage} alt="Uploaded" className="w-full h-full object-contain" />
+                <img src={selectedImage} alt="Uploaded" className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = getImgFallbackDataUri();
+                  }} />
                 <button
                   onClick={handleClearImage}
                   className="absolute top-4 right-4 px-4 py-2 bg-black/50 hover:bg-black text-white text-sm rounded-full backdrop-blur-md transition-colors"
@@ -239,10 +239,21 @@ function PhotoEdit() {
                 </div>
               </div>
             </div>
+            {libraryError && (
+              <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200 mb-6" role="alert">
+                <span className="text-sm flex-1">{libraryError}</span>
+                <button onClick={clearLibraryError} className="text-red-400 hover:text-red-600 text-sm font-medium">关闭</button>
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {results.map((r, idx) => (
                 <div key={`photo-result-${idx}`} className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                  <img src={r} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="variation" />
+                  <img src={r} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="variation"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src = getImgFallbackDataUri();
+                    }} />
                   <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between">
                     <span className="text-white text-xs font-mono tracking-widest">发型风格 {idx + 1}</span>
                     <button

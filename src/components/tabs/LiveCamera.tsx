@@ -4,6 +4,7 @@ import { useAppContext } from '../../store/AppContext';
 import { useAREngine } from '../../hooks/useAREngine';
 import { HAIRSTYLE_ASSETS } from '../../data/hairstyleAssets';
 import { HAIR_COLOR_PRESETS } from '../../constants/hairColors';
+import { getImgFallbackDataUri } from '../../utils/imageUtils';
 
 function LiveCamera() {
   const { library, libraryLoading, currentHairstyleIndex, setCurrentHairstyleIndex, getCurrentHairstyle, setActiveTab } = useAppContext();
@@ -49,7 +50,6 @@ function LiveCamera() {
         console.error('Failed to switch hairstyle:', err);
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arActive, switchHairstyle, setHairColor]);
 
   const cycleAsset = useCallback(() => {
@@ -105,7 +105,7 @@ function LiveCamera() {
           <div className="flex-1 overflow-y-auto px-2 py-3 space-y-2">
             {libraryLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={'skeleton-'+i} className="w-full rounded-xl overflow-hidden animate-pulse">
+                <div key={`skeleton-${i}`} className="w-full rounded-xl overflow-hidden animate-pulse">
                   <div className="relative">
                     <div className="w-full aspect-square bg-white/10" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -123,7 +123,12 @@ function LiveCamera() {
                 }`}>
                 <div className="relative">
                   <img src={item.previewUrl} alt={item.name} loading="lazy"
-                    className="w-full aspect-square object-cover" />
+                    className="w-full aspect-square object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src = getImgFallbackDataUri(item.name[0]);
+                    }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <span className="absolute bottom-1 left-1 right-1 text-[10px] text-white font-medium leading-tight truncate">
                     {item.name}

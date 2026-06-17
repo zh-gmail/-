@@ -29,9 +29,9 @@ AI 虚拟换发型 Web 应用，核心功能链：AR 实时面部追踪 + 3D 发
 - **发型库侧边栏**: 可折叠左侧栏 (104px)，点击切换预览
 
 ### ⚠️ 已实现但有缺口
-- **3D 发型 GLB 文件缺失**: 当前 3 个效果全是测试用 box 几何体，需替换为真实 3D 发型
-- **发色实时调整**: `arEngine.ts` 中 `setHairColor()` 已实现，缺 UI 颜色选择器
-- **AR 截图保存**: `takeScreenshot()` 已实现，缺 UI 按钮
+- **3D 发型 GLB 文件**: Blender 发片（hair cards）方式生成，覆盖头顶+后脑+刘海（~11-14KB/个），支持发色调整
+- **发色实时调整**: `arEngine.ts` 中 `setHairColor()` 已实现 + UI 颜色选择器（8 色预设）
+- **AR 截图保存**: `takeScreenshot()` 已实现 + UI 截图按钮
 
 ### ❌ 已删除
 - **DeepAR SDK**: 已全部迁移到 MindAR + Three.js 开源方案

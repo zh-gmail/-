@@ -35,7 +35,7 @@ export function useAREngine({ previewRef, onFaceTracked }: UseAREngineOptions) {
       setFaceDetected(false);
       setArError(null);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const initEngine = useCallback(async () => {
     if (initCalledRef.current) return;

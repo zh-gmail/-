@@ -2,8 +2,8 @@
   "project": "AI Hair Stylist Pro",
   "description": "AI 虚拟换发型 Web 应用 — AR 面部追踪 + 3D 发型叠加 + AI 照片换发",
   "createdAt": "2026-06-16",
-  "verifiedAt": "2026-06-17 01:39",
-  "verifiedBy": "lint+build+tests 全部通过 (60/60), task 24 身份保持验证通过 — 2026-06-16 终验. Review: fixed package.json name, AppContext nextHairstyle/prevHairstyle, added tasks 29-31. 2026-06-16 深度审查: fixed package.json clean script, added tasks 32-33. 2026-06-16 二次深度审查: fixed WHAT comments in imageGenClient/imageUtils, added setProvider guard, added task 34. 2026-06-17 全维度审查: fixed Library.test.tsx empty state test (mock pattern), removed @mediapipe/tasks-vision dead dep, fixed clean script cross-platform, added task 37. 2026-06-17 project-review: fixed AppContext useCallback/useMemo + sessionStorage, skeleton key indices, added tasks 38-41. 2026-06-17 独立审查: fixed mockLibrary alpha hex, Extraction color preset sync, test sessionStorage pollution, added task 42. 2026-06-17 实现: tasks 39/41/42 — frustumCulled → computeBoundingSphere, ERNIE 模型常量, 删除索引漂移修复. 2026-06-17 全维度审查: fixed vite @ alias → src/, removed experimentalDecorators, npm dedupe, deleted stale review-output.json, added tasks 46-47. 2026-06-17 实现: task 47 — React.memo + useCallback 优化 (5 components), lint+build+tests (64/64) passed. 2026-06-17 全维度审查: added React.memo to Library.tsx (6th component), added tasks 49-50 (Extraction no-key banner + API AbortController), build+tests (64/64) passed. 2026-06-17 全维度审查 vol.2: fixed Extraction.tsx build-breaking bug (demoTimerRef split declaration), suppressed chunkSizeWarningLimit, cleaned falProvider WHAT comment, lint+build+tests (64/64) passed. 2026-06-17 深度审查: npm prune removed 7 extraneous packages, added tasks 53 (LiveCamera fragile test) + 54 (libraryDB versionchange), npm audit noted esbuild vuln (low runtime risk). 2026-06-17 实现: task 50 — AbortController 6 files (imageGenClient/baiduProvider/aliProvider/falProvider/PhotoEdit/Extraction), tsc --noEmit clean per-file. 2026-06-17 全维度审查: removed Google Fonts @import (CSP-blocked dead code), fixed imageUtils comment (WHAT), added tasks 57-59 (font theme cleanup, test tsc check, Navigation a11y). build+tests (66/66) passed. 2026-06-17 全维度审查: fixed PhotoEdit/Extraction 上传文件大小校验, update task 62 passes:true, added tasks 63-65 (Navigation fallback, libraryDB error null, falProvider parallel canvas). build+tests (66/66) passed. 2026-06-17 实现: tasks 63/64/65 — MinimalNav fallback in App.tsx, libraryDB 5 error null guards, falProvider Promise.all parallelization. lint+build+tests (66/66) passed. 2026-06-17 全维度审查: fixed useImageUpload file input value reset, added tasks 66-68 (DeepAR dead files, AR screenshot composite, file input fix). build+tests (66/66) passed. 2026-06-17 实现: tasks 66/67/68 — 删除 public/deepar/ 48MB 死文件, AR 截图 Canvas2D 合成视频帧+3D, 确认 useImageUpload file input value 已修复. lint+build+tests (66/66) passed.",
+  "verifiedAt": "2026-06-17 01:59",
+  "verifiedBy": "lint+build+tests 全部通过 (60/60), task 24 身份保持验证通过 — 2026-06-16 终验. Review: fixed package.json name, AppContext nextHairstyle/prevHairstyle, added tasks 29-31. 2026-06-16 深度审查: fixed package.json clean script, added tasks 32-33. 2026-06-16 二次深度审查: fixed WHAT comments in imageGenClient/imageUtils, added setProvider guard, added task 34. 2026-06-17 全维度审查: fixed Library.test.tsx empty state test (mock pattern), removed @mediapipe/tasks-vision dead dep, fixed clean script cross-platform, added task 37. 2026-06-17 project-review: fixed AppContext useCallback/useMemo + sessionStorage, skeleton key indices, added tasks 38-41. 2026-06-17 独立审查: fixed mockLibrary alpha hex, Extraction color preset sync, test sessionStorage pollution, added task 42. 2026-06-17 实现: tasks 39/41/42 — frustumCulled → computeBoundingSphere, ERNIE 模型常量, 删除索引漂移修复. 2026-06-17 全维度审查: fixed vite @ alias → src/, removed experimentalDecorators, npm dedupe, deleted stale review-output.json, added tasks 46-47. 2026-06-17 实现: task 47 — React.memo + useCallback 优化 (5 components), lint+build+tests (64/64) passed. 2026-06-17 全维度审查: added React.memo to Library.tsx (6th component), added tasks 49-50 (Extraction no-key banner + API AbortController), build+tests (64/64) passed. 2026-06-17 全维度审查 vol.2: fixed Extraction.tsx build-breaking bug (demoTimerRef split declaration), suppressed chunkSizeWarningLimit, cleaned falProvider WHAT comment, lint+build+tests (64/64) passed. 2026-06-17 深度审查: npm prune removed 7 extraneous packages, added tasks 53 (LiveCamera fragile test) + 54 (libraryDB versionchange), npm audit noted esbuild vuln (low runtime risk). 2026-06-17 实现: task 50 — AbortController 6 files (imageGenClient/baiduProvider/aliProvider/falProvider/PhotoEdit/Extraction), tsc --noEmit clean per-file. 2026-06-17 全维度审查: removed Google Fonts @import (CSP-blocked dead code), fixed imageUtils comment (WHAT), added tasks 57-59 (font theme cleanup, test tsc check, Navigation a11y). build+tests (66/66) passed. 2026-06-17 全维度审查: fixed PhotoEdit/Extraction 上传文件大小校验, update task 62 passes:true, added tasks 63-65 (Navigation fallback, libraryDB error null, falProvider parallel canvas). build+tests (66/66) passed. 2026-06-17 实现: tasks 63/64/65 — MinimalNav fallback in App.tsx, libraryDB 5 error null guards, falProvider Promise.all parallelization. lint+build+tests (66/66) passed. 2026-06-17 全维度审查: fixed useImageUpload file input value reset, added tasks 66-68 (DeepAR dead files, AR screenshot composite, file input fix). build+tests (66/66) passed. 2026-06-17 实现: tasks 66/67/68 — 删除 public/deepar/ 48MB 死文件, AR 截图 Canvas2D 合成视频帧+3D, 确认 useImageUpload file input value 已修复. lint+build+tests (66/66) passed. 2026-06-17 全维度审查: fixed AppContext IndexedDB catch silent failure (setLibraryError), added tasks 69-71 (img onError fallback, Settings trim, save feedback). build+tests (66/66) passed. 2026-06-17 全维度审查 vol.3: lint+build+tests (68/68) 全部通过, 新增 tasks 72-73 (Navigation 测试缺口 + motion 库体积评估). 2026-06-17 全维度审查 vol.4: fixed App.tsx AppContent ErrorBoundary 包裹, lint+build+tests (68/68) 通过, 新增 tasks 74-76 (AppContent ErrorBoundary, 提取 img onError fallback, 文件大小校验移入 useImageUpload).",
   "tasks": [
     {
       "id": 1,
@@ -876,6 +876,116 @@
       "steps": [
         "确认 useImageUpload.ts 中 handleFileSelect 末尾已有 (e.target as HTMLInputElement).value = ''（已修复）",
         "验证 PhotoEdit 和 Extraction 中通过 handleImageUpload 调用 handleFileSelect 后正常",
+        "运行 npm run build && npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 69,
+      "title": "Library 素材卡片缺少加载失败图片占位 — img onError 回退",
+      "description": "Library.tsx 渲染 `<img>` 时为每个素材的 previewUrl 加载图片，但没有 onError 处理。外部图片 URL（Unsplash 等 CDN）可能因删除、过期或网络问题加载失败，卡片显示浏览器默认的破碎图片图标。应添加 onError 回调，在图片加载失败时显示占位图片或纯色背景+文字标识。",
+      "steps": [
+        "在 Library.tsx 的 `<img>` 元素上添加 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 或替换 src 为本地占位 SVG",
+        "占位设计建议：灰色背景 + 发型 emoji 文字 + 素材名称水印",
+        "同样检查 LiveCamera.tsx 侧边栏中的 img（line 125）是否需要相同保护",
+        "检查 PhotoEdit.tsx 和 Extraction.tsx 中的 img 是否需要相同保护",
+        "运行 npm run build 和 npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 70,
+      "title": "Settings API Key 输入框应 trim 前后空白",
+      "description": "Settings.tsx 中 API Key 输入框的 onChange 直接使用 `e.target.value` 保存到状态，没有 trim。用户从网页或邮件复制 API Key 时常包含首尾空白（换行符、空格），导致 testConnection 因为 Authorization header 格式错误而返回 401/失败。用户看到 '连接失败' 但无法直观看到空白字符问题。应在 onChange 中对 value 做 `.trim()`。",
+      "steps": [
+        "在 Settings.tsx 中修改 onChange 处理器: onChange={(e) => updateSettings(isFal ? { imageFalKey: e.target.value.trim() } : { imageApiKey: e.target.value.trim() })}",
+        "对 baiduNeedsSecret 的 Secret Key 输入框也做相同 trim 处理",
+        "更新 Existing tests — 设置 localStorage 中的 Key 值添加前后空格验证 trim 行为",
+        "运行 npm run build 和 npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 71,
+      "title": "PhotoEdit/Extraction 保存到素材库失败时应在当前页面显示反馈",
+      "description": "addToLibrary 使用乐观更新（先 setLibrary 添加 item，再异步 saveItem），如果 saveItem 失败，libraryError 被设置但只在 Library 页面可见。用户在 PhotoEdit/Extraction 点击保存时看不到任何失败反馈——bookmark 图标正常填充（PhotoEdit）或页面跳转到 Library（Extraction），但实际数据未写入 IndexedDB，刷新后消失。应让 PhotoEdit 和 Extraction 消费 libraryError，在 save 失败时显示行内错误提示。",
+      "steps": [
+        "在 PhotoEdit.tsx 中从 useAppContext() 解构 libraryError 和 clearLibraryError",
+        "在 generate results 区域添加条件渲染的红色错误提示：libraryError 非 null 时显示错误文本 + 关闭按钮",
+        "在 Extraction.tsx 中做相同处理（在提取结果显示区域下方）",
+        "handleSaveToLibrary 在触发 addToLibrary 后，如果 libraryError 被异步设置则需要一个 useEffect 监听 libraryError 变化来显示",
+        "运行 npm run build 和 npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 72,
+      "title": "Navigation 组件缺少单元测试",
+      "description": "所有其他 5 个 Tab 页面组件 (LiveCamera/PhotoEdit/Extraction/Library/Settings) 以及 AppContext 和 identityPreservation 都有对应的测试文件，唯独 Navigation.tsx 没有任何测试覆盖。Navigation 虽然逻辑简单（渲染 5 个导航按钮 + 交互切换），但作为所有页面切换的入口，应添加基础渲染和交互测试，验证：1) 5 个按钮都渲染 2) aria-label 存在 3) 点击切换 activeTab 高亮 4) 选中状态 visual 反馈。",
+      "steps": [
+        "创建 src/components/tabs/__tests__/Navigation.test.tsx",
+        "测试渲染 5 个导航按钮（通过 aria-label 定位）",
+        "测试点击按钮后 activeTab 高亮样式变化",
+        "测试 Navigation 使用 React.memo 后 props 不变不重渲染",
+        "运行 npm run test 验证通过"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 73,
+      "title": "评估 motion 动画库的 bundle 体积影响",
+      "description": "Navigation.tsx 是 motion 库（~62KB min / ~20KB gzip）的唯一定阅者，仅用于 `motion.div` + `layoutId='nav-pill'` 实现的导航指示器弹性动画。该库打包在主 chunk (332KB index chunk)中，贡献了显著比例。评估能否用纯 CSS 过渡 + JS 定位替代该简单动画，或确认 motion 库有其他潜在使用场景（如将来 UI 动画扩展）。",
+      "steps": [
+        "分析 bundle: npm run build 后查看 chunk 中 motion 库的字节占比",
+        "尝试用 CSS transition（transform + left 属性动画）替代 Navigation 的 motion.div layoutId 动画",
+        "评估手动管理 pill 位置 + CSS transition 的复杂度和效果",
+        "如果 CSS 方案可行: 删除 motion 依赖（npm uninstall motion），缩减 ~20KB gzip",
+        "如果 motion 仍保留: 在 task.json 中标记 blocked 并注明原因",
+        "运行 npm run build && npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 74,
+      "title": "AppContent 顶层 ErrorBoundary 保护",
+      "description": "App.tsx 中 AppContent 组件调用 useAppContext() 进行条件渲染，但不在任何 ErrorBoundary 内。如果 Context 或顶层逻辑崩溃，整个应用白屏无恢复 UI。已在 App.tsx 中将 `<AppContent />` 包裹在 `<ErrorBoundary>` 内，确保顶级崩溃时有恢复界面（刷新按钮）。",
+      "steps": [
+        "在 App.tsx 中将 <AppContent /> 包裹在 <ErrorBoundary> 内",
+        "运行 npm run build && npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": true
+    },
+    {
+      "id": 75,
+      "title": "提取重复的 img onError SVG 降级 fallback 为共享工具函数",
+      "description": "LiveCamera.tsx、PhotoEdit.tsx、Extraction.tsx、Library.tsx 四组件的 <img> onError 中有 6 处完全相同的 3 行 SVG data URI 降级代码（`target.onerror=null; target.src=data:image/svg+xml,...`）。提取为 `getImgFallbackDataUri(char: string)` 工具函数放到 imageUtils.ts，消除重复。",
+      "steps": [
+        "在 imageUtils.ts 中添加 getImgFallbackDataUri(char?: string) 函数，返回 SVG data URI",
+        "替换 LiveCamera.tsx line 127-129 的 inline 代码",
+        "替换 PhotoEdit.tsx line 176-179 和 line 260-262 的 inline 代码",
+        "替换 Extraction.tsx line 172-174 和 line 192-194 的 inline 代码",
+        "替换 Library.tsx line 99-101 的 inline 代码",
+        "运行 npm run build && npm run test 验证无回归"
+      ],
+      "dependsOn": [],
+      "passes": false
+    },
+    {
+      "id": 76,
+      "title": "将 10MB 文件大小校验移入 useImageUpload hook",
+      "description": "PhotoEdit.tsx 和 Extraction.tsx 的 handleImageUpload 中有完全相同的 4 行文件大小校验（`rawFile.size > 10 * 1024 * 1024`），在调用 handleFileSelect 之前执行。useImageUpload hook 已提取了文件上传的生命周期逻辑，但未包含大小校验和 setError。将大小校验和错误状态管理移入 hook，让两个组件消除重复。",
+      "steps": [
+        "在 useImageUpload.ts 的 handleFileSelect 中添加 maxSizeBytes 参数（默认 10*1024*1024）和文件大小校验",
+        "handleFileSelect 在 size 超限时设置内部 error 状态并返回 false",
+        "更新 useImageUpload 返回值暴露 error 状态",
+        "简化 PhotoEdit.tsx 和 Extraction.tsx 的 handleImageUpload，移除重复的大小校验代码",
         "运行 npm run build && npm run test 验证无回归"
       ],
       "dependsOn": [],

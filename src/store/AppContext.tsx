@@ -77,7 +77,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         items.sort((a, b) => b.createdAt - a.createdAt);
         setLibrary(items);
       })
-      .catch((err) => console.error('Failed to load library from IndexedDB:', err))
+      .catch((err) => {
+        console.error('Failed to load library from IndexedDB:', err);
+        setLibraryError('加载素材库失败，请检查浏览器存储空间');
+      })
       .finally(() => { if (!cancelled) setLibraryLoading(false); });
     return () => { cancelled = true; };
   }, []);

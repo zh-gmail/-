@@ -128,6 +128,20 @@ describe('Settings', () => {
     expect(successMsg).toBeInTheDocument();
   });
 
+  it('trims whitespace from API key input', () => {
+    renderWithContext(<Settings />);
+    const keyInput = screen.getByPlaceholderText('百度 Client ID') as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: '  sk-abc123  ' } });
+    expect(keyInput.value).toBe('sk-abc123');
+  });
+
+  it('trims whitespace from secret key input', () => {
+    renderWithContext(<Settings />);
+    const secretInput = screen.getByPlaceholderText('百度 Client Secret') as HTMLInputElement;
+    fireEvent.change(secretInput, { target: { value: '  client-secret-456  ' } });
+    expect(secretInput.value).toBe('client-secret-456');
+  });
+
   it('shows fail status when test connection fails', async () => {
     // Override mock to return false
     const { imageGenClient } = await import('../../../services/imageGenClient');

@@ -5,20 +5,22 @@ import { useImageUpload } from '../../hooks/useImageUpload';
 import type { HairstyleItem, HairType } from '../../types';
 import { HAIR_TYPE_OPTIONS } from '../../constants/hairTypes';
 import { imageGenClient } from '../../services/imageGenClient';
-import { resizeImage } from '../../utils/imageUtils';
+import { resizeImage, getImgFallbackDataUri } from '../../utils/imageUtils';
 import { HAIR_COLOR_PRESETS } from '../../constants/hairColors';
+import { generateId } from '../../utils/id';
 
 const DEMO_DELAY_MS = 1500;
 
 function Extraction() {
-  const { settings, addToLibrary, setActiveTab } = useAppContext();
-  const { selectedImage, fileRef, handleFileSelect, clearImage } = useImageUpload();
+  const { settings, addToLibrary, setActiveTab, libraryError, clearLibraryError } = useAppContext();
+  const { selectedImage, fileRef, handleFileSelect, clearImage, error: uploadError } = useImageUpload();
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedResult, setExtractedResult] = useState<string | null>(null);
   const [colorName, setColorName] = useState('自然黑');
   const [colorHex, setColorHex] = useState('#1a1a1a');
   const [selectedType, setSelectedType] = useState<HairType>('short');
   const [error, setError] = useState<string | null>(null);
+  const displayError = error || uploadError;
   const demoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const requestIdRef = useRef(0);
@@ -53,13 +55,6 @@ function Extraction() {
   ) : null;
 
   const handleImageUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const rawFile = e.target.files?.[0];
-    if (!rawFile) return;
-    if (rawFile.size > 10 * 1024 * 1024) {
-      setError('图片大小超过限制，请选择 10MB 以内的图片');
-      e.target.value = '';
-      return;
-    }
     handleFileSelect(e);
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -120,7 +115,7 @@ function Extraction() {
   const saveToLibrary = () => {
     if (!extractedResult) return;
     const newItem: HairstyleItem = {
-      id: `ext_${crypto.randomUUID()}`,
+      id: `ext_${generateId()}`,
       name: '提取发型',
       type: selectedType,
       colorName: colorName,
@@ -142,10 +137,10 @@ function Extraction() {
 
         {noKeyWarning}
 
-        {error && (
-          <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200">
+        {displayError && (
+          <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200" role="alert">
             <AlertCircle className="shrink-0 mt-0.5" size={20} />
-            <p className="text-sm opacity-80">{error}</p>
+            <p className="text-sm opacity-80">{displayError}</p>
           </div>
         )}
 
@@ -165,7 +160,12 @@ function Extraction() {
                  <div className="space-y-4">
                    <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-widest">原图</h3>
                    <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-100 relative group">
-                     <img src={selectedImage} alt="Source" loading="lazy" className="w-full h-full object-cover" />
+                     <img src={selectedImage} alt="Source" loading="lazy" className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.onerror = null;
+                          target.src = getImgFallbackDataUri();
+                        }} />
                      <button
                         onClick={handleClearImage}
                         className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm font-medium"
@@ -180,7 +180,12 @@ function Extraction() {
                    {extractedResult ? (
                      <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-white border border-neutral-200 p-4 relative flex items-center justify-center">
                         <div className="absolute inset-0 bg-[url('https://transparenttextures.com/patterns/cubes.png')] opacity-10 rounded-2xl"></div>
-                        <img src={extractedResult} alt="Extracted" className="w-full h-full object-contain relative z-10 drop-shadow-2xl" style={{ filter: 'brightness(1.1) contrast(1.1)' }} />
+                        <img src={extractedResult} alt="Extracted" className="w-full h-full object-contain relative z-10 drop-shadow-2xl" style={{ filter: 'brightness(1.1) contrast(1.1)' }}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.onerror = null;
+                            target.src = getImgFallbackDataUri();
+                          }} />
                      </div>
                    ) : (
                      <div className="aspect-[3/4] rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50 flex items-center justify-center">
@@ -206,6 +211,12 @@ function Extraction() {
                  </div>
                </div>
 
+               {libraryError && (
+                 <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-start gap-3 border border-red-200" role="alert">
+                   <span className="text-sm flex-1">{libraryError}</span>
+                   <button onClick={clearLibraryError} className="text-red-400 hover:text-red-600 text-sm font-medium">关闭</button>
+                 </div>
+               )}
                {extractedResult && (
                  <div className="pt-6 border-t border-neutral-100 space-y-6">
                    <div>

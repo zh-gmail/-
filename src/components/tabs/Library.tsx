@@ -1,6 +1,7 @@
 import { useState, useMemo, memo, useRef } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
+import { getImgFallbackDataUri } from '../../utils/imageUtils';
 
 function Library() {
   const { library, libraryLoading, libraryError, clearLibraryError, setActiveTab, deleteFromLibrary } = useAppContext();
@@ -61,7 +62,7 @@ function Library() {
         {libraryLoading && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={'skeleton-'+i} className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200">
+              <div key={`skeleton-${i}`} className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200">
                 <div className="aspect-square rounded-2xl bg-neutral-100 mb-4 animate-pulse" />
                 <div className="h-4 bg-neutral-100 rounded-full w-2/3 mb-2 animate-pulse" />
                 <div className="flex items-center gap-2">
@@ -95,6 +96,11 @@ function Library() {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     alt={item.name}
                     loading="lazy"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src = getImgFallbackDataUri(item.name[0]);
+                    }}
                   />
                   <button
                      onClick={() => setActiveTab('live')}

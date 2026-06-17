@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { KeyRound, ShieldCheck, Cpu, Sparkles, Loader2, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, ShieldCheck, Cpu, Sparkles, Loader2, CheckCircle2, XCircle, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 import { imageGenClient } from '../../services/imageGenClient';
 import type { ImageProviderType } from '../../types';
@@ -15,10 +15,12 @@ function Settings() {
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'fail'>('idle');
   const [showApiKey, setShowApiKey] = useState(false);
   const [showApiSecret, setShowApiSecret] = useState(false);
+  const [clearStatus, setClearStatus] = useState<'idle' | 'clearing' | 'done'>('idle');
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
-    return () => clearTimeout(idleTimerRef.current);
+    return () => { clearTimeout(idleTimerRef.current); clearTimeout(clearTimerRef.current); };
   }, []);
 
   // Reset connection test status when switching provider
@@ -84,14 +86,21 @@ function Settings() {
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-neutral-200 space-y-4">
             <p className="text-sm text-neutral-600">清空 IndexedDB 中所有已保存的发型素材。此操作不可撤销，清空后下次刷新页面将重新加载默认素材。</p>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm('确定要清空全部素材库吗？此操作不可撤销。')) {
-                  clearLibrary();
+                  setClearStatus('clearing');
+                  await clearLibrary();
+                  setClearStatus('done');
+                  clearTimeout(clearTimerRef.current);
+                  clearTimerRef.current = setTimeout(() => setClearStatus('idle'), 3000);
                 }
               }}
-              className="px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-all"
+              disabled={clearStatus === 'clearing'}
+              className="px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <Trash2 size={16} />
               清空本地素材库
+              {clearStatus === 'done' && <span className="text-green-200 ml-1">✓ 已清空</span>}
             </button>
           </div>
         </section>
@@ -136,7 +145,7 @@ function Settings() {
                 <input
                   type={showApiKey ? 'text' : 'password'}
                   value={isFal ? settings.imageFalKey : settings.imageApiKey}
-                  onChange={(e) => updateSettings(isFal ? { imageFalKey: e.target.value } : { imageApiKey: e.target.value })}
+                  onChange={(e) => updateSettings(isFal ? { imageFalKey: e.target.value.trim() } : { imageApiKey: e.target.value.trim() })}
                   placeholder={isFal ? 'FAL Key (fal-...)' : settings.imageProvider === 'baidu' ? '百度 Client ID' : 'sk-****'}
                   className="pl-12 pr-12 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full transition-all font-mono text-sm"
                 />
@@ -159,7 +168,7 @@ function Settings() {
                   <input
                     type={showApiSecret ? 'text' : 'password'}
                     value={settings.imageApiSecret}
-                    onChange={(e) => updateSettings({ imageApiSecret: e.target.value })}
+                    onChange={(e) => updateSettings({ imageApiSecret: e.target.value.trim() })}
                     placeholder="百度 Client Secret"
                     className="pl-12 pr-12 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent w-full transition-all font-mono text-sm"
                   />
