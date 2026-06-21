@@ -1,4 +1,4 @@
-/** Wraps crypto.randomUUID() with a fallback for non-secure contexts. */
+// crypto.randomUUID() with console fallback for non-secure contexts
 export function generateId(): string {
   try {
     return crypto.randomUUID();

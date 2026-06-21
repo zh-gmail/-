@@ -1,6 +1,6 @@
 # AI Hair Stylist Pro
 
-AI 虚拟换发型 Web 应用 — AR 面部追踪 + 3D 发型叠加 + AI 照片换发
+AI 虚拟换发型 Web 应用 — 上传照片 → AI 换发
 
 ## 启动
 
@@ -19,8 +19,7 @@ npm run lint    # TypeScript 类型检查
 
 ## 技术栈
 
-- React 19 + Vite 6 + Tailwind v4 + motion
-- MindAR v1.2.5（MediaPipe 面部追踪 + Three.js 渲染）
+- React 19 + Vite 6 + Tailwind v4
 - 百度文心一言 / 阿里通义万相 / FAL AI 换发 API
 
 ## 已知问题

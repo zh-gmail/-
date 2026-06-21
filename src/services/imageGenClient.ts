@@ -1,47 +1,58 @@
-import type { ImageProviderType } from '../types';
+import type { HairstyleGenOptions } from '../types';
+
+export interface StyleExtractionResult {
+  hairstyle: { name: string; description: string }[];
+  makeup: { name: string; description: string }[];
+  outfit: { name: string; description: string }[];
+}
 
 export interface ImageGenProviderImpl {
-  testConnection(apiKey: string, apiSecret?: string): Promise<boolean>;
-  generateHairstyles(imageBase64: string, apiKey: string, apiSecret?: string, signal?: AbortSignal): Promise<string[]>;
-  extractHairstyle(imageBase64: string, apiKey: string, apiSecret?: string, signal?: AbortSignal): Promise<string>;
+  testConnection(): Promise<boolean>;
+  analyzeFace(imageBase64: string, signal?: AbortSignal): Promise<string>;
+  generateHairstyles(imageBase64: string, signal?: AbortSignal, options?: HairstyleGenOptions): Promise<string[]>;
+  extractHairstyle(imageBase64: string, signal?: AbortSignal): Promise<string>;
+  extractStyle(imageBase64: string, signal?: AbortSignal): Promise<StyleExtractionResult>;
 }
 
 class ImageGenClient {
   private provider: ImageGenProviderImpl | null = null;
-  private providerName: ImageProviderType | null = null;
 
-  async setProvider(name: ImageProviderType): Promise<void> {
-    if (this.providerName === name) return;
-    if (name === 'baidu') {
-      const mod = await import('./providers/baiduProvider');
-      this.provider = mod.baiduProvider;
-    } else if (name === 'fal') {
-      const mod = await import('./providers/falProvider');
-      this.provider = mod.falProvider;
-    } else {
-      const mod = await import('./providers/aliProvider');
-      this.provider = mod.aliProvider;
-    }
-    this.providerName = name;
+  async ensureProvider(): Promise<void> {
+    if (this.provider) return;
+    const mod = await import('./providers/aliProvider');
+    this.provider = mod.aliProvider;
   }
 
-  async testConnection(apiKey: string, apiSecret?: string): Promise<boolean> {
-    if (!this.provider) throw new Error('Provider not set');
-    return this.provider.testConnection(apiKey, apiSecret);
+  async testConnection(): Promise<boolean> {
+    await this.ensureProvider();
+    return this.provider!.testConnection();
   }
 
-  async generateHairstyles(imageBase64: string, apiKey: string, apiSecret?: string, signal?: AbortSignal): Promise<string[]> {
-    if (!this.provider) throw new Error('Provider not set');
-    return this.provider.generateHairstyles(imageBase64, apiKey, apiSecret, signal);
+  async analyzeFace(imageBase64: string, signal?: AbortSignal): Promise<string> {
+    await this.ensureProvider();
+    return this.provider!.analyzeFace(imageBase64, signal);
   }
 
-  async extractHairstyle(imageBase64: string, apiKey: string, apiSecret?: string, signal?: AbortSignal): Promise<string> {
-    if (!this.provider) throw new Error('Provider not set');
-    return this.provider.extractHairstyle(imageBase64, apiKey, apiSecret, signal);
+  async generateHairstyles(imageBase64: string, signal?: AbortSignal, options?: HairstyleGenOptions): Promise<string[]> {
+    await this.ensureProvider();
+    return this.provider!.generateHairstyles(imageBase64, signal, options);
   }
 
-  getProviderName(): ImageProviderType | null {
-    return this.providerName;
+  async extractHairstyle(imageBase64: string, signal?: AbortSignal): Promise<string> {
+    await this.ensureProvider();
+    return this.provider!.extractHairstyle(imageBase64, signal);
+  }
+
+  async extractStyle(imageBase64: string, signal?: AbortSignal): Promise<StyleExtractionResult> {
+    await this.ensureProvider();
+    return this.provider!.extractStyle(imageBase64, signal);
+  }
+}
+
+export class ContentBlockedError extends Error {
+  constructor() {
+    super('CONTENT_BLOCKED');
+    this.name = 'ContentBlockedError';
   }
 }
 

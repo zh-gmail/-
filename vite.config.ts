@@ -8,24 +8,20 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     build: {
       chunkSizeWarningLimit: 2500,
-      rollupOptions: {
-        output: {
-          manualChunks(id: string) {
-            // 2.2MB model weights — separate chunk for async loading
-            if (id.includes('src/vendor/controller-d1')) return 'mindar-weights';
-            if (id.includes('src/vendor/')) return 'mindar-vendor';
-            if (id.includes('node_modules/three/addons/')) return 'three-addons';
-            if (id.includes('node_modules/three/')) return 'three';
-          },
-        },
-      },
+    },
+    optimizeDeps: {
+      exclude: ['@mediapipe/tasks-vision'],
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify — file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      port: 3000,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+        },
+      },
     },
     test: {
       environment: 'jsdom',

@@ -1,41 +1,46 @@
-export type TabState = 'live' | 'photo' | 'extract' | 'library' | 'settings';
+export type TabState = 'home' | 'photo' | 'makeup' | 'outfit' | 'extract' | 'library' | 'settings';
 
-export type ImageProviderType = 'baidu' | 'ali' | 'fal';
+export type AssetCategory = 'hairstyle' | 'makeup' | 'outfit';
+
+export type ImageProviderType = 'ali';
 
 export interface AppSettings {
   imageApiKey: string;
-  imageApiSecret: string;
-  imageFalKey: string;
   imageProvider: ImageProviderType;
+  autoSaveAssets: boolean;
 }
 
 export type HairType = 'short' | 'buzz' | 'wool' | 'long' | 'bob';
 
-export interface BaiduImageResponse {
-  b64_image?: string;
-  url?: string;
-}
+export type AnalysisCategory = AssetCategory;
 
-export interface AliImageResponse {
-  url?: string;
-  b64_image?: string;
-}
-
-export interface HairstyleAsset {
-  id: string;
+export interface StyleRecommendation {
   name: string;
-  effectUrl: string;
-  thumbnailUrl: string;
-  scale?: [number, number, number];
-  position?: [number, number, number];
+  description: string;
+}
+
+export interface HairstyleRecommendation extends StyleRecommendation {
+  hairType: HairType;
+}
+
+export interface HairstyleGenOptions {
+  customPrompt?: string;
+  existingAnalysis?: string;
+  hairstyleColor?: string;
+  hairstyleColorHex?: string;
+  category?: AnalysisCategory;
+  recommendations?: StyleRecommendation[];
+  referenceImageBase64?: string;
 }
 
 export interface HairstyleItem {
   id: string;
   name: string;
-  type: HairType;
+  category: AssetCategory;
+  type: string;
   colorName: string;
   colorHex: string;
+  description: string;
   previewUrl: string;
   createdAt: number;
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import type { AppSettings, HairstyleItem, TabState, ImageProviderType } from '../types';
-import { getAllItems, saveItem, deleteItem, clearAll } from '../services/libraryDB';
+import type { AppSettings, HairstyleItem, TabState } from '../types';
+import { getAllItems, saveItem, deleteItem, clearAll } from '../services/libraryApi';
 import { seedLibrary } from '../data/seed';
 
 interface AppContextType {
@@ -21,31 +21,25 @@ interface AppContextType {
 }
 
 const PLACEHOLDER_HAIRSTYLE: HairstyleItem = {
-  id: 'placeholder', name: '无素材', type: 'short' as const,
-  colorName: '—', colorHex: '#666666', previewUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E', createdAt: 0,
+  id: 'placeholder', name: '无素材', category: 'hairstyle', type: 'short' as const,
+  colorName: '—', colorHex: '#666666', description: '', previewUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E', createdAt: 0,
 };
 
-const defaultSettings: AppSettings = (() => {
-  const baiduKey = import.meta.env.VITE_BAIDU_API_KEY || '';
-  const dashscopeKey = import.meta.env.VITE_DASHSCOPE_API_KEY || '';
-  const falKey = import.meta.env.VITE_FAL_KEY || '';
-  const provider: ImageProviderType = baiduKey ? 'baidu' : dashscopeKey ? 'ali' : falKey ? 'fal' : 'baidu';
-  return {
-    imageApiKey: baiduKey || dashscopeKey || '',
-    imageApiSecret: import.meta.env.VITE_BAIDU_SECRET_KEY || '',
-    imageFalKey: falKey,
-    imageProvider: provider,
-  };
-})();
+const defaultSettings: AppSettings = {
+  imageApiKey: import.meta.env.VITE_DASHSCOPE_API_KEY || '',
+  imageProvider: 'ali',
+  autoSaveAssets: true,
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<TabState>('live');
+  const [activeTab, setActiveTab] = useState<TabState>('home');
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const saved = localStorage.getItem('app_settings');
-      return saved ? JSON.parse(saved) : defaultSettings;
+      if (!saved) return defaultSettings;
+      return { ...defaultSettings, ...JSON.parse(saved) };
     } catch (err) {
       console.warn('Failed to parse settings from localStorage:', err);
       return defaultSettings;
@@ -66,10 +60,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     let cancelled = false;
+    let seeded = false;
     setLibraryLoading(true);
     getAllItems()
       .then(async (items) => {
-        if (items.length === 0) {
+        if (items.length === 0 && !seeded) {
+          seeded = true;
           await seedLibrary();
           if (cancelled) return;
           items = await getAllItems();
@@ -92,19 +88,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearLibraryError = useCallback(() => setLibraryError(null), []);
 
   const addToLibrary = useCallback((item: HairstyleItem) => {
+    setLibrary((prev) => [item, ...prev]);
     saveItem(item).catch((err) => {
       console.error('Failed to save to library:', err);
       setLibraryError('保存素材失败，请检查存储空间后重试');
+      setLibrary((prev) => prev.filter((i) => i.id !== item.id));
     });
-    setLibrary((prev) => [item, ...prev]);
   }, []);
 
   const deleteFromLibrary = useCallback((id: string) => {
+    const removed: HairstyleItem[] = [];
+    setLibrary((prev) => {
+      const idx = prev.findIndex((i) => i.id === id);
+      if (idx === -1) return prev;
+      removed.push(prev[idx]);
+      return prev.filter((i) => i.id !== id);
+    });
     deleteItem(id).catch((err) => {
       console.error('Failed to delete from library:', err);
       setLibraryError('删除素材失败，请重试');
+      if (removed.length) setLibrary((prev) => [...prev, removed[0]]);
     });
-    setLibrary((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
   const clearLibrary = useCallback(async () => {

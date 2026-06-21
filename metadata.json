@@ -1,6 +1,0 @@
-{
-  "name": "AI Hair Stylist Pro",
-  "description": "An AI-powered application for real-time virtual hair styling. Features live camera AR try-on with voice and gesture controls, photo retouching hair generation, and hairstyle extraction.",
-  "requestFramePermissions": ["camera", "microphone"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

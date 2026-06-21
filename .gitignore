@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 test.glb
+.claude/
+test-b64.txt
+test-portrait.jpg
+screenshot.png

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "dev:all": "concurrently -n fe,be \"vite --port=3000 --host=0.0.0.0\" \"cd server && npm run dev\"",
+    "build": "vite build && cd server && npm run build",
+    "start": "cd server && npm start",
     "preview": "vite preview",
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
     "lint": "tsc --noEmit",
@@ -14,10 +16,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.35",
+    "daisyui": "^5.5.23",
     "lucide-react": "^0.546.0",
+    "motion": "^12.40.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "three": "^0.184.0"
+    "react-router-dom": "^7.18.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
@@ -25,8 +30,8 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^9.2.3",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
