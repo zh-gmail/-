@@ -12,7 +12,7 @@ export default function LandingPage() {
             className="w-full h-full bg-cover bg-center transition-transform duration-[10000ms] hover:scale-110"
             style={{
               backgroundImage:
-                "url('https://lh3.googleusercontent.com/aida/AP1WRLuFi9jde6plazjXE1ECv0BkF2d5ydS4DW5q3b2gYfYGCfWmIgrt9pRGWfYF3FBG8q5JUQcwMNJ1RzCxQuWS-vApw925s_BIooX6mLiRqbERV6yWnb-YqPwUUCmDBLCyRKhRPb9FXR1jPU0t2bGrQ8Nl5aIpCz1ziM_jXgfjhAD9_qJeukLeNxuaOg1N8zz4Vt8dsMNj8Mo_w1B9PaOmzN7br_Gxduw0HsFBZDmXs6zH7aN84e0cjPj51ME')",
+                "url('/assets/休闲白衣.jpg')",
             }}
           ></div>
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-canvas-white/80"></div>
@@ -88,7 +88,7 @@ export default function LandingPage() {
                 <img
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   alt="Texture"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBr7gLDh6mNu3_1FVBqwuWe4YimdfpobzpRBK1wgmwyFQmM4k8ji2eB7zRpNTRPB2fJ4HCLJK5lCUWBQBV7DEX743i5O29BsoUq8YVNZG65rvZro4K-YpWP2aUN3rV0IdikDSdZeNymJAB9-wBmHn6s_T-xD8_rPKL2E2C6Nk1BY-xP56jPP-QgPk3_JLOPLrQB9Rswh2YN4C2xoFEbbQ3DiWo5WqUuLJpT5Pv_po1xvuhdqUCR49_L36U6OiRa2K4027cgPk9O6AQ"
+                  src="/assets/发型/女士/大波浪.png"
                 />
                 <div className="absolute bottom-0 left-0 p-8 bg-white/70 backdrop-blur-md w-full translate-y-full group-hover:translate-y-0 transition-transform duration-500">
                   <h3 className="font-headline-md text-headline-md text-ink-black mb-2">
@@ -127,7 +127,7 @@ export default function LandingPage() {
                 <img
                   className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
                   alt="Model Profile"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2bKC1zkMrY_4CDKQOARrrlG9aTwSrQttL4HC_lwyuVOw5UFh-DgTaXUbk_ufUJLQE3N9BrUOcei7DVVKS5eSwpWsrmrCcKTjP4MdZCB3WCjpvcMwwV0St0SfJOl3GvRyjuRt7v_QagQ5HvylYcqo2VJYrdOapVPYEIre9_rg5-doLuZhqVX5BBHadj-3b7cMJ0vSWEES59YpLF9cenG2bb_6NfKLiezFQdPeQyDPZUV9pn8lBqgoRPkNv0nfCXzJS87vmw2793cY"
+                  src="/assets/妆容/日式氛围感妆容.png"
                 />
               </div>
             </div>
@@ -156,9 +156,9 @@ export default function LandingPage() {
             className="grid grid-cols-1 md:grid-cols-3 gap-12"
           >
             {[
-              { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAggdrLEotYKG_E3IvAXD4B08HDj_3JjWsyuYR_XTqPsVGZgEVUOGr8lrDa00SoQxQcmAu5lJQsiRUHPWOtF0RnfLQjaAmHwhgIFy5sa97wAAotTvJWA8DETV_26ZkgYI1BYeM7my3USAgm06s97yza9fE8mPTIenQxe1l5mThicfamzktVYiJW3lp26W8cevKPT5YdeazthdxsIktdxBZRP0tRWR4SSZm5Ww2FgD7ub_fh2hlhK6ZBkJialqVg7r4oWwyowT29iFw', title: '发型变换', desc: 'AI 智能生成多种适配发型' },
-              { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB2Fw6ivIEcK-dq5nitSmyHDMAH4fhSOegThoSGmgahqUhQhyXadPhxAeMsK1NvvnNXK0U0LJZZawaYgR7EPF4bkgNOS0To3jRW_txOtEJgB_EzG1PybLCT7IVCP1Ndz9cYMgoSusIXTmzAr4k-qKkPcagxod9n_UMXBF7iKdXed2g-kZzW5oQoplDdENtxKNBxH3spN6Nc9F2YhWkFuu5rmtDIoBLpeAJEzuvXjdWgyVoynAABeCf4zY7B5rUZUoinYlaDJDgiht0', title: '妆容变换', desc: 'AI 精准模拟多种妆效风格' },
-              { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAN9W7Hl19-CWPm-P3V7MzRS15DB0ixouFO6ef3wUjysWGhD4_k9gjKewptkJjLDpCIsz29-Gp9eygd1tQOHDkGmnI5jnJdhDbphCNtl_FA1teos7CpcuZZPPthQZqSyC7pKDxpf5Re4Ze4Ud0y62MHbELQpdkmoIJm68rr_Yet_iicCFKmaqEDUaL30ELCQ8zSMCLkJwO_MwVjDNVGff1bW2lcTATZ9Hoare-uMqzgc__8S6gWPrsSy9oOa2Lxrx3PfPvv_DadUaw', title: '穿搭变换', desc: 'AI 呈现多种穿搭风格效果' },
+              { src: '/assets/发型/男士/狼尾剪.png', title: '发型变换', desc: 'AI 智能生成多种适配发型' },
+              { src: '/assets/妆容/温柔蜜桃妆.png', title: '妆容变换', desc: 'AI 精准模拟多种妆效风格' },
+              { src: '/assets/发型/女士/黑长直.png', title: '穿搭变换', desc: 'AI 呈现多种穿搭风格效果' },
             ].map((item, i) => (
               <div key={i} className={`group ${i === 1 ? 'translate-y-0 md:translate-y-12' : ''}`}>
                 <div className="aspect-[3/4] mb-6 overflow-hidden bg-linen-beige border border-outline-variant/30">

@@ -208,6 +208,70 @@ async function pollAliTask(taskId: string, maxRetries = 30, signal?: AbortSignal
   throw new Error('通义万相图像生成超时');
 }
 
+async function generateStyleSample(
+  styleName: string,
+  description: string,
+  category: 'hairstyle' | 'makeup' | 'outfit',
+  signal?: AbortSignal,
+): Promise<string> {
+  const categoryLabel = category === 'hairstyle' ? '发型' : category === 'makeup' ? '妆容' : '服装';
+  const prompt = `时尚${categoryLabel}展示：${styleName}，${description}，专业摄影，干净背景，半身人像，柔和灯光，高清画质`;
+  const images = await callWanxTextToImage(prompt, 1, signal);
+  return images[0] || '';
+}
+
+async function extractStyleCategory(
+  imageBase64: string,
+  category: 'hairstyle' | 'makeup' | 'outfit',
+  signal?: AbortSignal,
+): Promise<{ name: string; description: string }[]> {
+  const categoryPrompts: Record<string, string> = {
+    hairstyle: `分析这张照片中人物的发型风格，给出3-5种适合的发型推荐。
+只分析发型，忽略妆容和服装。
+每种发型返回格式：
+发型名称：<简洁风格名称>
+风格描述：<详细描述：包括发型特征、适合脸型、打理要点、日常注意事项>`,
+    makeup: `分析这张照片中人物的妆容风格，给出3-5种适合的妆容推荐。
+只分析妆容，忽略发型和服装。
+每种妆容返回格式：
+妆容名称：<简洁风格名称>
+风格描述：<详细描述：包括妆面特征、关键化妆技巧、用色建议、步骤要点>`,
+    outfit: `分析这张照片中人物的穿搭风格，给出3-5种适合的穿搭推荐。
+只分析穿搭，忽略发型和妆容。
+每种穿搭返回格式：
+穿搭名称：<简洁风格名称>
+风格描述：<详细描述：包括搭配思路、单品选择、适合场合、配饰建议>`,
+  };
+
+  const raw = await callQwenVL(imageBase64, categoryPrompts[category], signal);
+  const lines = raw.split('\n').filter(l => l.trim());
+  const results: { name: string; description: string }[] = [];
+  let currentName = '';
+  let currentDesc = '';
+
+  for (const line of lines) {
+    const trimmed = line.replace(/^[-*•\d]+[.、）)]?\s*/, '').trim();
+    const nameMatch = trimmed.match(/(?:发型|妆容|穿搭)(?:名称|风格)?[：:]\s*(.+)/);
+    if (nameMatch) {
+      if (currentName) results.push({ name: currentName, description: currentDesc });
+      currentName = nameMatch[1].trim();
+      currentDesc = '';
+      continue;
+    }
+    const descMatch = trimmed.match(/(?:风格)?描述[：:]\s*(.+)/);
+    if (descMatch) {
+      currentDesc = descMatch[1].trim();
+    }
+  }
+  if (currentName) results.push({ name: currentName, description: currentDesc });
+
+  if (results.length === 0 && raw.length > 0) {
+    results.push({ name: raw.slice(0, 30).trim(), description: raw.slice(0, 200) });
+  }
+
+  return results;
+}
+
 export const aliProvider: ImageGenProviderImpl = {
   async testConnection(): Promise<boolean> {
     try {
@@ -241,7 +305,8 @@ export const aliProvider: ImageGenProviderImpl = {
 
       try {
         const ref = options?.referenceImageBase64;
-        const finalPrompt = ref ? `${prompts[i]}\n\n参考图2中的风格应用到图1上` : prompts[i];
+        const categoryLabel = options?.category === 'makeup' ? '妆容' : options?.category === 'outfit' ? '服装' : '发型';
+        const finalPrompt = ref ? `${prompts[i]}\n\n参考图2中的${categoryLabel}风格应用到图1上` : prompts[i];
         const urls = await callQwenImageEdit(imageBase64, finalPrompt, 1, signal, ref);
         if (urls.length === 0) {
           blockedCount++;
@@ -272,6 +337,14 @@ export const aliProvider: ImageGenProviderImpl = {
     const images = await callWanxTextToImage(`透明背景的发型素材PNG：${description}。只包含发型，无人脸，无背景，轮廓清晰。`, 1, signal);
     if (images.length === 0) throw new Error('发型提取失败');
     return images[0];
+  },
+
+  async extractStyleCategory(imageBase64: string, category: 'hairstyle' | 'makeup' | 'outfit', signal?: AbortSignal): Promise<{ name: string; description: string }[]> {
+    return extractStyleCategory(imageBase64, category, signal);
+  },
+
+  async generateStyleSample(styleName: string, description: string, category: 'hairstyle' | 'makeup' | 'outfit', signal?: AbortSignal): Promise<string> {
+    return generateStyleSample(styleName, description, category, signal);
   },
 
   async extractStyle(imageBase64: string, signal?: AbortSignal): Promise<StyleExtractionResult> {

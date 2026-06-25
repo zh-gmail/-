@@ -20,7 +20,10 @@ app.delete('/api/items', clearAllItems);
 app.delete('/api/items/:id', deleteItem);
 
 // Static file serving
-app.use('/api/files/*', serveStatic({ root: './uploads' }));
+app.use('/api/files/*', serveStatic({
+  root: './uploads',
+  rewriteRequestPath: (path: string) => path.replace(/^\/api\/files\//, '/'),
+}));
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 console.log(`Server starting on http://localhost:${PORT}`);

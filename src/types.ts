@@ -31,6 +31,7 @@ export interface HairstyleGenOptions {
   category?: AnalysisCategory;
   recommendations?: StyleRecommendation[];
   referenceImageBase64?: string;
+  referenceImageUrl?: string;
 }
 
 export interface HairstyleItem {
@@ -43,4 +44,5 @@ export interface HairstyleItem {
   description: string;
   previewUrl: string;
   createdAt: number;
+  gender: 'male' | 'female' | 'unisex';
 }

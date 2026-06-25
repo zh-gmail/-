@@ -22,7 +22,7 @@ interface AppContextType {
 
 const PLACEHOLDER_HAIRSTYLE: HairstyleItem = {
   id: 'placeholder', name: '无素材', category: 'hairstyle', type: 'short' as const,
-  colorName: '—', colorHex: '#666666', description: '', previewUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E', createdAt: 0,
+  colorName: '—', colorHex: '#666666', description: '', previewUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E', createdAt: 0, gender: 'unisex',
 };
 
 const defaultSettings: AppSettings = {
@@ -39,7 +39,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const saved = localStorage.getItem('app_settings');
       if (!saved) return defaultSettings;
-      return { ...defaultSettings, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      const merged = { ...defaultSettings, ...parsed };
+      // VITE env var takes priority over empty saved value (migration: users who
+      // saved settings before VITE_DASHSCOPE_API_KEY was added to .env)
+      if (!merged.imageApiKey && defaultSettings.imageApiKey) {
+        merged.imageApiKey = defaultSettings.imageApiKey;
+      }
+      return merged;
     } catch (err) {
       console.warn('Failed to parse settings from localStorage:', err);
       return defaultSettings;

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Check, RotateCcw } from 'lucide-react';
 
 interface CameraCaptureProps {
   onCapture: (dataUrl: string) => void;
@@ -7,12 +7,13 @@ interface CameraCaptureProps {
   fullscreen?: boolean;
 }
 
-function CameraCapture({ onCapture, onClose, fullscreen }: CameraCaptureProps) {
+export default function CameraCapture({ onCapture, onClose, fullscreen }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [captured, setCaptured] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,11 +59,64 @@ function CameraCapture({ onCapture, onClose, fullscreen }: CameraCaptureProps) {
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     stopStream();
-    onCapture(dataUrl);
+    setCaptured(dataUrl);
+  }
+
+  function retake() {
+    setCaptured(null);
+    setLoading(true);
+    async function restart() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 } },
+          audio: false,
+        });
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch {
+        setError('无法重新启动摄像头');
+        setLoading(false);
+      }
+    }
+    restart();
+  }
+
+  function confirm() {
+    if (captured) onCapture(captured);
+  }
+
+  const containerClass = `relative bg-black ${fullscreen ? 'w-full h-full' : 'rounded-2xl overflow-hidden'}`;
+
+  if (captured) {
+    return (
+      <div className={containerClass}>
+        <img className="w-full h-full object-contain" src={captured} alt="拍摄的照片" />
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-6">
+          <button
+            onClick={retake}
+            className="w-14 h-14 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all backdrop-blur-sm border border-white/30"
+          >
+            <RotateCcw className="w-6 h-6" strokeWidth={1.5} />
+          </button>
+          <button
+            onClick={confirm}
+            className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg"
+          >
+            <Check className="w-7 h-7" strokeWidth={2} />
+          </button>
+        </div>
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm"
+        >
+          <X size={20} />
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className={`relative bg-black ${fullscreen ? 'w-full h-full' : 'rounded-2xl overflow-hidden'}`}>
+    <div className={containerClass}>
       {error ? (
         <div className={`flex flex-col items-center justify-center text-white px-6 ${fullscreen ? 'h-full' : 'h-72'}`}>
           <p className="text-red-400 text-sm text-center mb-4">{error}</p>
@@ -104,5 +158,3 @@ function CameraCapture({ onCapture, onClose, fullscreen }: CameraCaptureProps) {
     </div>
   );
 }
-
-export default CameraCapture;

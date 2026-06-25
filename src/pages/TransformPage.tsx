@@ -11,7 +11,7 @@ import { parseFaceAnalysis } from '../utils/faceAnalysis';
 import { HAIR_COLOR_PRESETS } from '../constants/hairColors';
 import ScanOverlay from '../components/ScanOverlay';
 import CameraCapture from '../components/CameraCapture';
-import type { AssetCategory, HairstyleRecommendation, StyleRecommendation } from '../types';
+import type { AssetCategory, HairstyleRecommendation, StyleRecommendation, HairstyleItem } from '../types';
 
 interface ResultItem {
   id: string;
@@ -34,13 +34,8 @@ const DEMO_RESULTS = [
 const DEFAULT_PORTRAIT =
   'https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&w=800&q=80';
 
-const HAIR_STYLE_OPTIONS = [
-  { name: '极简波波头', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuArbQLQrZy66aOlMuALd9zluafH1KGXCT5l_X7HPtDNLH2aj-AVQD8WRRAAmqRyraSzHWIA31_n82xxs_PPdLnSeOFjCqgau-FEUO-l8gWhlnAz5Zirf_e-qIorpNWMLio6kbZ7q0jazQDxgn3k50DP3yExo87tRyVuvpOv9RqGPOhVuSRuIUWu8UW7rff4s-QrgNyVWxk4VmG5bRy9TBlIBnDXpI3gJ8T2QM7c9BMfp3zhxvOHRK4a7iRyDdWC_0Rh7lXxkIbdWwQ' },
-  { name: '法式慵懒卷', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBiK_kV8gz8zZKhythdHZPkKt0dJpu_hB0UxLd2i46njzzF8A6HI-X3rMhBi-FPW-6JZONd4q3fgijqUaEUm4zOlV1K02ie6gfBAdG-ttBNqYlCsGBVHPDaVXVFFx5p_jvsDSadNh6e6BTpm0BlQ70xDZLkeZUR7cgwZNsMOXGvAFGAxxuxLLsnENmSC2Rc7ipqG0E8VXAxjyB1iLykY_YI2epCA6f3koV-KDR8xwbHfzHn7lngJDzORAg8pZ8alQuxMv7L3mofPb4' },
-];
-
 export default function TransformPage() {
-  const { addToLibrary } = useAppContext();
+  const { library, addToLibrary, settings } = useAppContext();
   const { selectedImage, fileRef, handleFileSelect, setImageFromDataUrl, error: uploadError } = useImageUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,8 +45,6 @@ export default function TransformPage() {
   const [selectedColorName, setSelectedColorName] = useState('自然黑');
   const [selectedColorHex, setSelectedColorHex] = useState('#1a1a1a');
   const [customPrompt] = useState('');
-  const [referenceImage, setReferenceImage] = useState<string | null>(null);
-  const referenceInputRef = useRef<HTMLInputElement>(null);
   const [faceAnalysis, setFaceAnalysis] = useState<string | null>(null);
   const [hairstyleRecs, setHairstyleRecs] = useState<HairstyleRecommendation[]>([]);
   const [makeupRecs, setMakeupRecs] = useState<StyleRecommendation[]>([]);
@@ -72,16 +65,28 @@ export default function TransformPage() {
   const displayError = error || uploadError;
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  // Track which recommendation is selected in each category
   const [selectedRecIdx, setSelectedRecIdx] = useState(0);
 
   const [selectedResultIdx, setSelectedResultIdx] = useState(0);
   const [isAutoRecommending, setIsAutoRecommending] = useState(false);
+  const [genderFilter, setGenderFilter] = useState<'male' | 'female' | 'unisex' | null>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const referenceInputRef = useRef<HTMLInputElement>(null);
+  const [selectedLibraryItem, setSelectedLibraryItem] = useState<{ name: string; description: string } | null>(null);
 
   const currentResults = useMemo(() => results.filter(r => r.category === activeTab), [results, activeTab]);
   const bestResult = currentResults[selectedResultIdx] || currentResults[0];
-  // API key is injected server-side by the proxy; the key field is for user override
-  const noKey = false;
+
+  const libraryItems = useMemo(() => {
+    return library.filter(item => {
+      if (item.category !== activeTab) return false;
+      // Show items even if gender is undefined (old data without gender field)
+      if (genderFilter && item.gender !== undefined && item.gender !== genderFilter) return false;
+      return true;
+    });
+  }, [library, activeTab, genderFilter]);
+
+  const noKey = !settings.imageApiKey;
 
   const categoryLabel = activeTab === 'hairstyle' ? '发型' : activeTab === 'makeup' ? '妆容' : '穿搭';
   const tabs = [
@@ -143,7 +148,7 @@ export default function TransformPage() {
         hairstyleColorHex: selectedColorHex,
         category: activeTab,
         recommendations: params.recs?.length ? params.recs : undefined,
-        referenceImageBase64: params.referenceImageBase64 || referenceImage || undefined,
+        referenceImageBase64: params.referenceImageBase64 || undefined,
       });
       if (requestId !== requestIdRef.current) return;
       const newResults = withIds(images.length > 0 ? images : DEMO_RESULTS, activeTab);
@@ -166,26 +171,38 @@ export default function TransformPage() {
     setActiveTab(tab);
     setSelectedRecIdx(0);
     setSelectedResultIdx(0);
+    setSelectedLibraryItem(null);
   }, []);
 
-  const handleSelectRec = useCallback((idx: number) => {
-    setSelectedRecIdx(idx);
-    const recs = getActiveRecs();
-    const singleRec = recs[idx];
-    if (!singleRec || !selectedImage) return;
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
-    const reqId = ++requestIdRef.current;
-    setIsGenerating(true);
-    doGenerate(abortRef.current.signal, reqId, { existingAnalysis: faceAnalysis || undefined, recs: [singleRec] });
-  }, [getActiveRecs, selectedImage, faceAnalysis, doGenerate]);
-
+  const handleLibrarySelect = useCallback(async (item: HairstyleItem) => {
+    const idx = libraryItems.findIndex(i => i.id === item.id);
+    setSelectedRecIdx(idx >= 0 ? idx : 0);
+    setSelectedLibraryItem({ name: item.name, description: item.description || '' });
+    if (!selectedImage || !fileRef.current) return;
+    try {
+      if (item.previewUrl.startsWith('data:')) {
+        setReferenceImage(item.previewUrl);
+      } else {
+        const resp = await fetch(item.previewUrl);
+        const blob = await resp.blob();
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        setReferenceImage(dataUrl);
+      }
+    } catch (err) {
+      console.warn('Failed to load library preview as reference:', err);
+    }
+  }, [selectedImage, fileRef, libraryItems]);
 
   // Reset state when image changes
   useEffect(() => {
     if (!selectedImage) {
       setFaceAnalysis(null); setHairstyleRecs([]); setMakeupRecs([]); setOutfitRecs([]);
       setScanStage(0); setError(null); setResults([]); setSelectedResultIdx(0);
+      setSelectedLibraryItem(null);
     }
   }, [selectedImage]);
 
@@ -201,8 +218,19 @@ export default function TransformPage() {
     const reqId = ++requestIdRef.current;
     setIsGenerating(true);
     const recs = getActiveRecs();
-    doGenerate(signal, reqId, { existingAnalysis: faceAnalysis || undefined, recs: recs.length > 0 ? recs : undefined });
-  }, [faceAnalysis, doGenerate, getActiveRecs]);
+    // Library selection takes priority over AI auto-recommendations
+    let effectiveRecs: StyleRecommendation[] | undefined;
+    if (selectedLibraryItem) {
+      effectiveRecs = [{ name: selectedLibraryItem.name, description: selectedLibraryItem.description }];
+    } else if (recs.length > 0) {
+      effectiveRecs = recs;
+    }
+    doGenerate(signal, reqId, {
+      existingAnalysis: faceAnalysis || undefined,
+      recs: effectiveRecs,
+      referenceImageBase64: referenceImage ? referenceImage.split(',')[1] : undefined,
+    });
+  }, [faceAnalysis, doGenerate, getActiveRecs, referenceImage, selectedLibraryItem]);
 
   const handleAutoRecommend = useCallback(async () => {
     if (!selectedImage || !fileRef.current) return;
@@ -239,23 +267,6 @@ export default function TransformPage() {
     }
   }, [selectedImage, fileRef, activeTab, doGenerate]);
 
-  const handleReferenceUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1];
-      setReferenceImage(base64);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  }, []);
-
-  const clearReference = useCallback(() => {
-    setReferenceImage(null);
-  }, []);
-
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     handleFileSelect(e);
     abortRef.current?.abort();
@@ -268,7 +279,38 @@ export default function TransformPage() {
   const handleCameraCapture = useCallback((dataUrl: string) => {
     setImageFromDataUrl(dataUrl);
     setShowCamera(false);
-  }, [setImageFromDataUrl]);
+    // Auto-trigger generation after camera capture
+    setTimeout(() => {
+      handleRegenerate();
+    }, 100);
+  }, [setImageFromDataUrl, handleRegenerate]);
+
+  const handleReferenceUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setReferenceImage(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    if (!bestResult) return;
+    try {
+      const resp = await fetch(bestResult.url);
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${categoryLabel}效果_${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch (err) {
+      console.error('下载失败:', err);
+    }
+  }, [bestResult, categoryLabel]);
 
   const handleSaveToLibrary = useCallback(() => {
     if (!bestResult) return;
@@ -288,6 +330,7 @@ export default function TransformPage() {
       description: saveDesc,
       previewUrl: bestResult.url,
       createdAt: Date.now(),
+      gender: 'unisex',
     });
   }, [bestResult, addToLibrary, categoryLabel, activeTab, selectedColorName, selectedColorHex, getActiveRecs, selectedRecIdx]);
 
@@ -301,7 +344,7 @@ export default function TransformPage() {
             <h1 className="font-headline-lg text-headline-lg text-ink-black">镜像变换</h1>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 border border-outline text-label-caps font-label-caps hover:bg-surface-container-low transition-colors flex items-center gap-2">
+            <button onClick={handleDownload} disabled={!bestResult} className="px-4 py-2 border border-outline text-label-caps font-label-caps hover:bg-surface-container-low transition-colors flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed">
               <Download className="w-4 h-4" strokeWidth={1.5} />
               下载结果
             </button>
@@ -338,14 +381,20 @@ export default function TransformPage() {
           <div className="relative">
             {/* Re-upload overlay button - top right */}
             <div className="absolute top-3 right-3 z-30 flex gap-2">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-outline-variant text-label-caps font-label-caps text-ink-black hover:bg-white transition-colors flex items-center gap-1.5"
-                title="重新选择照片"
-              >
-                <Upload className="w-3.5 h-3.5" strokeWidth={1.5} />
-                换一张
-              </button>
+              <div className="relative">
+                <div className="px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-outline-variant text-label-caps font-label-caps text-ink-black hover:bg-white transition-colors flex items-center gap-1.5 pointer-events-none">
+                  <Upload className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  换一张
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  onClick={(e) => { e.currentTarget.value = ''; }}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowCamera(true); }}
                 className="px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-outline-variant text-label-caps font-label-caps text-ink-black hover:bg-white transition-colors flex items-center gap-1.5"
@@ -354,6 +403,17 @@ export default function TransformPage() {
                 <Camera className="w-3.5 h-3.5" strokeWidth={1.5} />
                 拍照
               </button>
+              {bestResult && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={isGenerating}
+                  className="px-3 py-1.5 bg-ink-black/80 backdrop-blur-sm text-white border border-ink-black/60 text-label-caps font-label-caps hover:bg-ink-black transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  title="重新生成"
+                >
+                  <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  {isGenerating ? '生成中...' : '重新生成'}
+                </button>
+              )}
             </div>
             <div
               ref={sliderContainerRef}
@@ -412,60 +472,62 @@ export default function TransformPage() {
               </>
             )}
           </div>
-            {/* Hidden file input for re-upload */}
-            <input ref={fileInputRef} type="file" className="absolute w-0 h-0 opacity-0 pointer-events-none" accept="image/*" onChange={handleImageUpload} />
+            {/* Hidden file input for re-upload — move outside ternary */}
           </div>
-        ) : (
-          /* Default: beautiful portrait + blurred background expansion */
-          <div
-            className="relative aspect-[4/5] bg-linen-beige w-full overflow-hidden cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {/* Blurred background — creates the "outpainting" expansion effect */}
-            <div
-              className="absolute -inset-[30%] bg-cover bg-center scale-110"
-              style={{
-                backgroundImage: `url(${DEFAULT_PORTRAIT})`,
-                filter: 'blur(50px)',
-                opacity: 0.7,
-              }}
-            />
-            {/* Clear portrait centered */}
-            <div className="absolute inset-0 flex items-center justify-center p-6 md:p-10">
-              <div className="relative w-full h-full overflow-hidden shadow-2xl">
-                <img
-                  className="w-full h-full object-cover"
-                  src={DEFAULT_PORTRAIT}
-                  alt="默认形象照"
-                />
+          ) : (
+            /* Default: beautiful portrait + blurred background expansion */
+            <div className="relative aspect-[4/5] bg-linen-beige w-full overflow-hidden">
+              {/* Blurred background — creates the "outpainting" expansion effect */}
+              <div
+                className="absolute -inset-[30%] bg-cover bg-center scale-110"
+                style={{
+                  backgroundImage: `url(${DEFAULT_PORTRAIT})`,
+                  filter: 'blur(50px)',
+                  opacity: 0.7,
+                }}
+              />
+              {/* Clear portrait centered */}
+              <div className="absolute inset-0 flex items-center justify-center p-6 md:p-10">
+                <div className="relative w-full h-full overflow-hidden shadow-2xl">
+                  <img
+                    className="w-full h-full object-cover"
+                    src={DEFAULT_PORTRAIT}
+                    alt="默认形象照"
+                  />
+                </div>
+              </div>
+              {/* Gradient overlay + upload controls — always visible */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent
+                flex flex-col items-center justify-end pb-12 gap-4">
+                <p className="text-white/80 font-body-md text-body-md tracking-wide">
+                  点击下方上传您的照片
+                </p>
+                <div className="flex gap-3">
+                  <div className="relative">
+                    <div className="px-6 py-3 bg-white text-ink-black font-label-caps text-label-caps hover:opacity-90 transition-all active:scale-95 flex items-center gap-2 pointer-events-none">
+                      <Upload className="w-4 h-4" strokeWidth={1.5} />
+                      选择文件
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      onClick={(e) => { e.currentTarget.value = ''; }}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowCamera(true); }}
+                    className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white border border-white/40 font-label-caps text-label-caps hover:bg-white/30 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Camera className="w-4 h-4" strokeWidth={1.5} />
+                    拍照
+                  </button>
+                </div>
               </div>
             </div>
-            {/* Gradient overlay + upload controls — always visible */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent
-              flex flex-col items-center justify-end pb-12 gap-4">
-              <p className="text-white/80 font-body-md text-body-md tracking-wide">
-                点击下方上传您的照片
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                  className="px-6 py-3 bg-white text-ink-black font-label-caps text-label-caps hover:opacity-90 transition-all active:scale-95 flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" strokeWidth={1.5} />
-                  选择文件
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowCamera(true); }}
-                  className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white border border-white/40 font-label-caps text-label-caps hover:bg-white/30 transition-all active:scale-95 flex items-center gap-2"
-                >
-                  <Camera className="w-4 h-4" strokeWidth={1.5} />
-                  拍照
-                </button>
-              </div>
-            </div>
-            <input ref={fileInputRef} type="file" className="absolute w-0 h-0 opacity-0 pointer-events-none" accept="image/*" onChange={handleImageUpload} />
-          </div>
-        )}
+          )}
 
         <p className="text-on-surface-variant font-body-md max-w-lg mt-2">
           我们的 AI 模型保留了您的原始骨骼结构，同时通过算法生成精准的{categoryLabel}细节，为您提供真实的高级成衣试穿体验。
@@ -489,7 +551,7 @@ export default function TransformPage() {
               key={t.id}
               onClick={() => handleTabChange(t.id)}
               className={`flex-1 py-4 font-label-caps text-label-caps text-center transition-colors ${
-                activeTab === t.id ? 'text-ink-black' : 'text-on-surface-variant hover:text-ink-black'
+                activeTab === t.id ? 'text-ink-black font-bold bg-surface-container-high' : 'text-on-surface-variant hover:text-ink-black hover:bg-surface-container-low'
               }`}
             >
               {t.label}
@@ -497,7 +559,7 @@ export default function TransformPage() {
           ))}
           <motion.div
             layoutId="activeTabIndicator"
-            className="absolute bottom-[-1px] h-[2px] bg-ink-black w-1/3"
+            className="absolute bottom-[-1px] h-[3px] bg-ink-black w-1/3 shadow-sm"
             initial={false}
             animate={{
               left: activeTab === 'hairstyle' ? '0%' : activeTab === 'makeup' ? '33.33%' : '66.66%',
@@ -506,39 +568,69 @@ export default function TransformPage() {
           />
         </div>
 
-        {/* Panel: Hairstyle */}
-        {activeTab === 'hairstyle' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <label className="font-label-caps text-label-caps text-earth-taupe">发型款式</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(hairstyleRecs.length > 0 ? hairstyleRecs : HAIR_STYLE_OPTIONS).map((rec, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => handleSelectRec(idx)}
-                    className={`group cursor-pointer transition-all ${
-                      selectedRecIdx === idx ? 'ring-2 ring-earth-taupe' : ''
-                    }`}
-                  >
-                    <div className="aspect-square bg-linen-beige border border-transparent group-hover:border-earth-taupe transition-all overflow-hidden relative">
-                      {'img' in rec ? (
-                        <img className="w-full h-full object-cover" alt={rec.name} src={(rec as any).img} />
-                      ) : hairstyleRecs.length > 0 ? (
-                        <div className="w-full h-full flex items-center justify-center bg-linen-beige/50 text-earth-taupe font-label-caps text-label-caps p-2 text-center">
-                          {rec.name}
+        {/* Gender Filter — only for hairstyle and outfit */}
+        {activeTab !== 'makeup' && (
+          <div className="flex gap-2">
+            {[
+              { id: null as null, label: '全部' },
+              { id: 'male' as const, label: '男士' },
+              { id: 'female' as const, label: '女士' },
+              { id: 'unisex' as const, label: '中性' },
+            ].map(g => (
+              <button
+                key={g.label}
+                onClick={() => setGenderFilter(g.id)}
+                className={`px-3 py-1.5 font-label-caps text-label-caps transition-colors border ${
+                  genderFilter === g.id
+                    ? 'bg-ink-black text-white border-ink-black font-bold'
+                    : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:bg-surface-container-highest hover:border-outline'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Library Grid — shared across all categories */}
+        <div className="flex flex-col gap-3">
+          <label className="font-label-caps text-label-caps text-earth-taupe">素材库 — {categoryLabel}</label>
+          {libraryItems.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {libraryItems.map((item, idx) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleLibrarySelect(item)}
+                  className={`group cursor-pointer transition-all ${
+                    selectedRecIdx === idx ? 'ring-[3px] ring-ink-black ring-offset-1' : ''
+                  }`}
+                >
+                  <div className={`aspect-square bg-linen-beige transition-all overflow-hidden relative ${
+                    selectedRecIdx === idx ? 'border-2 border-ink-black bg-earth-taupe/10' : 'border border-outline-variant group-hover:border-earth-taupe'
+                  }`}>
+                    <img className="w-full h-full object-cover" alt={item.name} src={item.previewUrl} />
+                    {selectedRecIdx === idx && (
+                      <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                        <div className="w-8 h-8 bg-ink-black rounded-full flex items-center justify-center shadow-lg">
+                          <Check className="w-5 h-5 text-white" strokeWidth={3} />
                         </div>
-                      ) : null}
-                      {selectedRecIdx === idx && (
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-earth-taupe rounded-full flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </div>
-                      )}
-                    </div>
-                    <span className="mt-2 block font-label-md text-label-md text-ink-black">{rec.name}</span>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <span className="mt-2 block font-label-md text-label-md text-ink-black">{item.name}</span>
+                </div>
+              ))}
             </div>
+          ) : (
+            <p className="text-on-surface-variant font-body-md text-sm py-4 text-center border border-dashed border-outline-variant">
+              素材库暂无{categoryLabel}素材
+            </p>
+          )}
+        </div>
+
+        {/* Color Selection (hairstyle only) */}
+        {activeTab === 'hairstyle' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3">
             <div className="flex flex-col gap-3">
               <label className="font-label-caps text-label-caps text-earth-taupe">发色选择</label>
               <div className="flex flex-wrap gap-3">
@@ -558,103 +650,6 @@ export default function TransformPage() {
               </div>
               <p className="text-xs text-on-surface-variant/60 mt-1">{selectedColorName}</p>
             </div>
-            {/* Reference Material Upload */}
-            <div className="flex flex-col gap-3 pt-2 border-t border-outline-variant/30">
-              <label className="font-label-caps text-label-caps text-earth-taupe">参考素材（可选）</label>
-              <input ref={referenceInputRef} type="file" className="hidden" accept="image/*" onChange={handleReferenceUpload} />
-              {referenceImage ? (
-                <div className="flex items-center gap-3 p-2 bg-linen-beige/50 border border-outline-variant">
-                  <img
-                    className="w-12 h-12 object-cover border border-outline-variant"
-                    src={`data:image/jpeg;base64,${referenceImage}`}
-                    alt="参考"
-                  />
-                  <span className="flex-1 font-label-md text-label-md text-on-surface-variant truncate">参考素材已上传</span>
-                  <button
-                    onClick={clearReference}
-                    className="text-on-surface-variant hover:text-error transition-colors text-sm px-2"
-                  >
-                    X
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => referenceInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 border border-dashed border-outline-variant text-label-caps font-label-caps text-on-surface-variant hover:border-earth-taupe hover:text-earth-taupe transition-colors"
-                >
-                  <Upload className="w-4 h-4" strokeWidth={1.5} />
-                  上传参考图
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Panel: Makeup */}
-        {activeTab === 'makeup' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <label className="font-label-caps text-label-caps text-earth-taupe">妆效风格</label>
-              <div className="space-y-2">
-                {(makeupRecs.length > 0 ? makeupRecs : [
-                  { name: '原生感裸妆', description: '' },
-                  { name: '大地色通勤妆', description: '' },
-                ]).map((rec, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSelectRec(i)}
-                    className={`w-full px-4 py-3 text-left font-label-md text-label-md flex justify-between items-center group transition-all ${
-                      selectedRecIdx === i && makeupRecs.length > 0
-                        ? 'bg-earth-taupe/20 border border-earth-taupe'
-                        : 'bg-linen-beige/50 border border-transparent hover:bg-linen-beige'
-                    }`}
-                  >
-                    <span>{rec.name}</span>
-                    {selectedRecIdx === i && makeupRecs.length > 0 ? (
-                      <Check className="text-earth-taupe w-5 h-5" strokeWidth={2} />
-                    ) : (
-                      <Check className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5" strokeWidth={1.5} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Panel: Outfit */}
-        {activeTab === 'outfit' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <label className="font-label-caps text-label-caps text-earth-taupe">服装类别</label>
-              <div className="space-y-2">
-                {(outfitRecs.length > 0 ? outfitRecs : [
-                  { name: '简约通勤风', description: '' },
-                  { name: '优雅知性风', description: '' },
-                ]).map((rec, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSelectRec(i)}
-                    className={`w-full px-4 py-3 text-left font-label-md text-label-md flex justify-between items-center group transition-all ${
-                      selectedRecIdx === i && outfitRecs.length > 0
-                        ? 'bg-earth-taupe/20 border border-earth-taupe'
-                        : 'bg-linen-beige/50 border border-transparent hover:bg-linen-beige'
-                    }`}
-                  >
-                    <span>{rec.name}</span>
-                    {selectedRecIdx === i && outfitRecs.length > 0 ? (
-                      <Check className="text-earth-taupe w-5 h-5" strokeWidth={2} />
-                    ) : (
-                      <Check className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5" strokeWidth={1.5} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="bg-linen-beige p-4 flex flex-col gap-2">
-              <p className="font-label-md text-label-md">智能穿搭建议</p>
-              <p className="text-xs leading-relaxed text-on-surface-variant">根据您的骨骼分析，结构感的西装外套能更好地修饰您的肩颈线条。</p>
-            </div>
           </motion.div>
         )}
 
@@ -667,8 +662,8 @@ export default function TransformPage() {
                 <div
                   key={res.id}
                   onClick={() => setSelectedResultIdx(idx)}
-                  className={`aspect-square bg-linen-beige border overflow-hidden cursor-pointer transition-all ${
-                    selectedResultIdx === idx ? 'ring-2 ring-earth-taupe' : 'border-outline-variant hover:border-earth-taupe'
+                  className={`aspect-square bg-linen-beige overflow-hidden cursor-pointer transition-all ${
+                    selectedResultIdx === idx ? 'border-2 border-ink-black ring-1 ring-ink-black' : 'border border-outline-variant hover:border-earth-taupe'
                   }`}
                 >
                   <img className="w-full h-full object-cover" src={res.url} alt={`结果${idx + 1}`} />
@@ -677,6 +672,36 @@ export default function TransformPage() {
             </div>
           </div>
         )}
+
+        {/* Reference Image Upload */}
+        <div className="flex flex-col gap-3">
+          <label className="font-label-caps text-label-caps text-earth-taupe">参考图（可选）</label>
+          <div className="flex items-center gap-3">
+            <input ref={referenceInputRef} type="file" className="hidden" accept="image/*" onChange={handleReferenceUpload} />
+            {referenceImage ? (
+              <div className="flex items-center gap-3 w-full">
+                <div className="w-16 h-16 border border-outline-variant overflow-hidden flex-shrink-0">
+                  <img className="w-full h-full object-cover" src={referenceImage} alt="参考图" />
+                </div>
+                <span className="text-xs text-on-surface-variant truncate flex-1">参考图已上传</span>
+                <button
+                  onClick={() => setReferenceImage(null)}
+                  className="text-xs text-error hover:text-error/80 underline"
+                >
+                  移除
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { if (referenceInputRef.current) { referenceInputRef.current.value = ''; referenceInputRef.current.click(); } }}
+                className="flex items-center gap-2 px-4 py-2 w-full border border-dashed border-outline-variant text-label-caps font-label-caps text-on-surface-variant hover:border-earth-taupe hover:text-earth-taupe transition-colors"
+              >
+                <Upload className="w-4 h-4" strokeWidth={1.5} />
+                上传参考图
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Footer Controls */}
         <div className="pt-6 border-t border-outline-variant flex flex-col gap-3">
@@ -700,11 +725,12 @@ export default function TransformPage() {
           <button
             onClick={handleAutoRecommend}
             disabled={isAutoRecommending || !selectedImage}
-            className="w-full py-3 bg-white border border-earth-taupe text-earth-taupe font-label-caps text-label-caps tracking-widest hover:bg-earth-taupe hover:text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3 font-label-caps text-label-caps tracking-widest active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ backgroundColor: '#000000', color: '#ffffff', border: 'none' }}
           >
             {isAutoRecommending ? (
               <>
-                <span className="inline-block w-4 h-4 border-2 border-earth-taupe/30 border-t-earth-taupe rounded-full animate-spin" />
+                <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 AI 分析推荐中...
               </>
             ) : (

@@ -12,6 +12,8 @@ export interface ImageGenProviderImpl {
   generateHairstyles(imageBase64: string, signal?: AbortSignal, options?: HairstyleGenOptions): Promise<string[]>;
   extractHairstyle(imageBase64: string, signal?: AbortSignal): Promise<string>;
   extractStyle(imageBase64: string, signal?: AbortSignal): Promise<StyleExtractionResult>;
+  extractStyleCategory(imageBase64: string, category: 'hairstyle' | 'makeup' | 'outfit', signal?: AbortSignal): Promise<{ name: string; description: string }[]>;
+  generateStyleSample(styleName: string, description: string, category: 'hairstyle' | 'makeup' | 'outfit', signal?: AbortSignal): Promise<string>;
 }
 
 class ImageGenClient {
@@ -46,6 +48,16 @@ class ImageGenClient {
   async extractStyle(imageBase64: string, signal?: AbortSignal): Promise<StyleExtractionResult> {
     await this.ensureProvider();
     return this.provider!.extractStyle(imageBase64, signal);
+  }
+
+  async extractStyleCategory(imageBase64: string, category: 'hairstyle' | 'makeup' | 'outfit', signal?: AbortSignal): Promise<{ name: string; description: string }[]> {
+    await this.ensureProvider();
+    return this.provider!.extractStyleCategory(imageBase64, category, signal);
+  }
+
+  async generateStyleSample(styleName: string, description: string, category: 'hairstyle' | 'makeup' | 'outfit', signal?: AbortSignal): Promise<string> {
+    await this.ensureProvider();
+    return this.provider!.generateStyleSample(styleName, description, category, signal);
   }
 }
 

@@ -90,6 +90,7 @@ export async function generateSeedItems(
           description: cat.prompts[i],
           previewUrl: `data:image/png;base64,${base64}`,
           createdAt: Date.now(),
+        gender: "unisex",
         });
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') throw err;
@@ -119,6 +120,7 @@ export async function generateSingleSeedItem(
       colorHex: '#9C8468',
       description: prompt,
       previewUrl: `data:image/png;base64,${base64}`,
+        gender: "unisex",
       createdAt: Date.now(),
     };
   } catch (err) {

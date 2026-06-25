@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, useCallback } from 'react';
 import { Search, Grid, Wand2, Scissors, Shirt, Plus, Box, Upload } from 'lucide-react';
 import { useAppContext } from '../store/AppContext';
 import { generateId } from '../utils/id';
-import type { AssetCategory } from '../types';
+import Lightbox from '../components/Lightbox';
+import type { AssetCategory, HairstyleItem } from '../types';
 
 const CATEGORY_LABELS: Record<string, string> = {
   hairstyle: '发型设计',
@@ -14,6 +15,7 @@ export default function LibraryPage() {
   const { library, libraryLoading, deleteFromLibrary, addToLibrary } = useAppContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [lightboxItem, setLightboxItem] = useState<HairstyleItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +35,7 @@ export default function LibraryPage() {
         description: `手动上传的${CATEGORY_LABELS[category] || category}素材`,
         previewUrl: reader.result as string,
         createdAt: Date.now(),
+        gender: 'unisex',
       });
     };
     reader.readAsDataURL(file);
@@ -127,50 +130,54 @@ export default function LibraryPage() {
             </p>
           </div>
           <div className="flex gap-4">
-            <input ref={fileInputRef} type="file" className="absolute w-0 h-0 opacity-0 pointer-events-none" accept="image/*" onChange={handleFileUpload} />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-6 py-2 bg-ink-black text-canvas-white font-label-caps text-label-caps uppercase transition-transform active:scale-95"
-            >
-              <Upload className="w-5 h-5" strokeWidth={1.5} />
-              上传图片
-            </button>
+            <div className="relative">
+              <div className="flex items-center gap-2 px-6 py-2 bg-ink-black text-canvas-white font-label-caps text-label-caps uppercase transition-transform active:scale-95 pointer-events-none">
+                <Upload className="w-5 h-5" strokeWidth={1.5} />
+                上传图片
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload}
+                onClick={(e) => { e.currentTarget.value = ''; }}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+            </div>
           </div>
         </header>
 
         {libraryLoading ? (
-          <div className="masonry-grid">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="masonry-item animate-pulse bg-surface-variant h-64 rounded-lg" />
+              <div key={i} className="aspect-square animate-pulse bg-surface-variant rounded-lg" />
             ))}
           </div>
         ) : (
           <>
             {/* Masonry Grid */}
             {filteredItems.length > 0 && (
-              <div className="masonry-grid">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {filteredItems.map(item => (
-                  <div key={item.id} className="masonry-item group cursor-pointer relative overflow-hidden rounded-lg">
-                    <img
-                      className="w-full h-auto object-cover transform transition-transform duration-700 group-hover:scale-105"
-                      alt={item.name}
-                      src={item.previewUrl}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400 p-4 flex flex-col justify-end">
-                      <span className="text-canvas-white font-label-caps text-[10px] tracking-widest uppercase mb-1">
+                  <div key={item.id} className="group cursor-pointer">
+                    <div onClick={() => setLightboxItem(item)} className="relative overflow-hidden rounded-lg aspect-square bg-surface-container-high">
+                      <img
+                        className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
+                        alt={item.name}
+                        src={item.previewUrl}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm('确定删除？')) deleteFromLibrary(item.id);
+                        }}
+                        className="absolute top-3 right-3 w-7 h-7 bg-black/30 hover:bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full z-10"
+                      >
+                        <Plus className="w-3 h-3 rotate-45" strokeWidth={2} />
+                      </button>
+                    </div>
+                    <div className="mt-2.5 px-0.5">
+                      <span className="text-earth-taupe font-label-caps text-[10px] tracking-widest uppercase block leading-none mb-1">
                         {CATEGORY_LABELS[item.category] || item.category}
                       </span>
-                      <h4 className="text-canvas-white font-headline-md text-lg">{item.name}</h4>
+                      <h4 className="text-ink-black font-headline-md text-[15px] leading-snug">{item.name}</h4>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm('确定删除？')) deleteFromLibrary(item.id);
-                      }}
-                      className="absolute top-3 right-3 w-7 h-7 bg-black/30 hover:bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full z-10"
-                    >
-                      <Plus className="w-3 h-3 rotate-45" strokeWidth={2} />
-                    </button>
                   </div>
                 ))}
               </div>
@@ -185,6 +192,10 @@ export default function LibraryPage() {
               </div>
             )}
           </>
+        )}
+
+        {lightboxItem && (
+          <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
         )}
       </main>
     </div>
